@@ -20,7 +20,7 @@ func NewHttpAPI(lc fx.Lifecycle, l *ledger.Ledger) *HttpAPI {
 	r.GET("/_info", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"server":  "aurex-ledger",
-			"version": "",
+			"version": "1.0.0-alpha.1",
 		})
 	})
 
