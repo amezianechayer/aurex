@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"aurex/api"
+	"aurex/config"
 	"aurex/ledger"
 
 	"github.com/spf13/cobra"
@@ -25,6 +26,7 @@ func Execute() {
 		Run: func(cmd *cobra.Command, args []string) {
 			app := fx.New(
 				fx.Provide(
+					config.GetConfig,
 					ledger.NewLedger,
 					api.NewHttpAPI,
 				),
@@ -36,21 +38,21 @@ func Execute() {
 		},
 	})
 
-	config := &cobra.Command{
+	conf := &cobra.Command{
 		Use: "config",
 	}
 
-	config.AddCommand(&cobra.Command{
+	conf.AddCommand(&cobra.Command{
 		Use: "init",
 		Run: func(cmd *cobra.Command, args []string) {
-			c := DefaultConfig()
+			c := config.DefaultConfig()
 			b := c.Serialize()
 			os.WriteFile("aurex.config.json", []byte(b), 0644)
 		},
 	})
 
 	root.AddCommand(server)
-	root.AddCommand(config)
+	root.AddCommand(conf)
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
