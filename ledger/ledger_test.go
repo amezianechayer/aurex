@@ -18,8 +18,10 @@ func with(f func(l *Ledger)) {
 		fx.Provide(
 			func() config.Config {
 				c := config.DefaultConfig()
-				c.Storage.SQLiteOpts.Directory = "/tmp"
-				c.Storage.SQLiteOpts.DBName = "numary-test-ledger"
+				// MODIF WINDOWS: on reste dans le dossier du projet
+				c.Storage.SQLiteOpts.Directory = "."
+				// MODIF: base dédiée aux tests
+				c.Storage.SQLiteOpts.DBName = "ledger-test"
 				return c
 			},
 			NewLedger,
@@ -29,7 +31,8 @@ func with(f func(l *Ledger)) {
 }
 
 func TestMain(m *testing.M) {
-	os.Remove("/tmp/numary-test-ledger.db")
+	// MODIF WINDOWS: suppression du fichier local
+	_ = os.Remove("ledger-test.db")
 	m.Run()
 }
 
@@ -38,14 +41,13 @@ func TestTransaction(t *testing.T) {
 
 		total := 0
 
-		for i := 0; i < 1e4; i++ {
+		for i := 0; i < 1e5; i++ {
 			if i%1e3 == 0 && i > 0 {
 				fmt.Println(i)
 			}
 
 			user := fmt.Sprintf("users:%03d", 1+rand.Intn(100))
-			amount := 1 + rand.Intn(100)
-			amount = 100
+			amount := 100
 			total += amount
 
 			err := l.Commit(core.Transaction{
@@ -72,7 +74,6 @@ func TestTransaction(t *testing.T) {
 		}
 
 		world, err := l.GetAccount("world")
-
 		if err != nil {
 			t.Error(err)
 		}
@@ -126,15 +127,22 @@ func TestReference(t *testing.T) {
 		}
 
 		err := l.Commit(tx)
-
 		if err != nil {
 			t.Error(err)
 		}
 
 		err = l.Commit(tx)
-
 		if err == nil {
 			t.Fail()
+		}
+	})
+}
+
+func TestLast(t *testing.T) {
+	with(func(l *Ledger) {
+		_, err := l.GetLastTransaction()
+		if err != nil {
+			t.Error(err)
 		}
 	})
 }
@@ -161,5 +169,10 @@ func BenchmarkGetAccount(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			l.GetAccount("users:013")
 		}
+	})
+}
+
+func BenchmarkFindTransactions(b *testing.B) {
+	with(func(l *Ledger) {
 	})
 }

@@ -5,6 +5,7 @@ import (
 	_ "embed"
 
 	"aurex/ledger"
+	"aurex/ledger/query"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
@@ -24,19 +25,24 @@ func NewHttpAPI(lc fx.Lifecycle, l *ledger.Ledger) *HttpAPI {
 		})
 	})
 
-	r.GET("/ledger/:name", func(c *gin.Context) {
+	r.GET("/stats", func(c *gin.Context) {
+		stats, err := l.Stats()
+
 		c.JSON(200, gin.H{
-			"ok":    true,
-			"stats": l.Stats(),
+			"ok":    err == nil,
+			"stats": stats,
 		})
 	})
 
 	r.GET("/transactions", func(c *gin.Context) {
-		results, err := l.FindTransactions()
+		cursor, err := l.FindTransactions(
+			query.After(c.Query("after")),
+			query.Account(c.Query("account")),
+		)
 
 		c.JSON(200, gin.H{
-			"ok":           err == nil,
-			"transactions": results,
+			"ok":     err == nil,
+			"cursor": cursor,
 		})
 	})
 
@@ -46,21 +52,14 @@ func NewHttpAPI(lc fx.Lifecycle, l *ledger.Ledger) *HttpAPI {
 		})
 	})
 
-	r.GET("/postings", func(c *gin.Context) {
-		results, err := l.FindPostings()
-
-		c.JSON(200, gin.H{
-			"ok":       err == nil,
-			"postings": results,
-		})
-	})
-
 	r.GET("/accounts", func(c *gin.Context) {
-		results, err := l.FindAccounts()
+		cursor, err := l.FindAccounts(
+			query.After(c.Query("after")),
+		)
 
 		c.JSON(200, gin.H{
-			"ok":       err == nil,
-			"accounts": results,
+			"ok":     err == nil,
+			"cursor": cursor,
 		})
 	})
 

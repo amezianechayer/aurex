@@ -7,7 +7,7 @@
   "storage": {
     "driver": "sqlite",
     "sqlite_opts": {
-      "directory": "",
+      "directory": ".aurex",
       "db_name": "ledger"
     }
   }
