@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 
+	"aurex/core"
 	"aurex/ledger"
 	"aurex/ledger/query"
 
@@ -47,8 +48,13 @@ func NewHttpAPI(lc fx.Lifecycle, l *ledger.Ledger) *HttpAPI {
 	})
 
 	r.POST("/transactions", func(c *gin.Context) {
+		var t core.Transaction
+		c.ShouldBind(&t)
+
+		err := l.Commit([]core.Transaction{t})
+
 		c.JSON(200, gin.H{
-			"ok": true,
+			"ok": err == nil,
 		})
 	})
 
