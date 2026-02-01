@@ -1,0 +1,23 @@
+name: Sync API Documentation
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'specification/http.yml'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Copy spec to docs
+        run: cp specification/http.yml docs/http.yml
+      
+      - name: Commit and push if changed
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "docs: auto-sync OpenAPI specification"
+          file_pattern: docs/http.yml
