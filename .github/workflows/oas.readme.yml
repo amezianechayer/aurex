@@ -4,13 +4,16 @@ on:
     branches:
       - master
       - main
+  workflow_dispatch:
+
 jobs:
-  build:
+  sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: readmeio/github-readme-sync@v2
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Sync OpenAPI to ReadMe
+        uses: readmeio/rdme@v8
         with:
-          readme-oas-key: ${{ secrets.README_OAS_KEY }}
-          oas-file-path: './spec/http.yml'
-          api-version: 'v1.0.0'
+          rdme: openapi ./spec/http.yml --key=${{ secrets.README_API_KEY }} --create
