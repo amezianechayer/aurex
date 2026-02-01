@@ -7,7 +7,7 @@
   "storage": {
     "driver": "sqlite",
     "sqlite_opts": {
-      "directory": ".aurex",
+      "directory": "/home/kali/.aurex/storage",
       "db_name": "ledger"
     }
   }
