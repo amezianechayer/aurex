@@ -16,4 +16,4 @@ jobs:
       - name: Sync OpenAPI to ReadMe
         uses: readmeio/rdme@v8
         with:
-          rdme: openapi ./spec/http.yml --key=${{ secrets.README_OAS_KEY }} --create
+          rdme: openapi ./specification/http.yml --key=${{ secrets.README_OAS_KEY }} --create
