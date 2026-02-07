@@ -7,12 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"aurex/config"
-	"aurex/core"
-	"aurex/ledger/query"
-	"aurex/storage"
-	"aurex/storage/sqlite"
-
+	"github.com/amezianechayer/aurex/config"
+	"github.com/amezianechayer/aurex/core"
+	"github.com/amezianechayer/aurex/ledger/query"
+	"github.com/amezianechayer/aurex/storage"
+	"github.com/amezianechayer/aurex/storage/sqlite"
 	"go.uber.org/fx"
 )
 

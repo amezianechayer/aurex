@@ -1,8 +1,8 @@
 package storage
 
 import (
-	"aurex/core"
-	"aurex/ledger/query"
+	"github.com/amezianechayer/aurex/core"
+	"github.com/amezianechayer/aurex/ledger/query"
 )
 
 type Store interface {

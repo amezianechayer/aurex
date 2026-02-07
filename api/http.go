@@ -4,9 +4,9 @@ import (
 	"context"
 	_ "embed"
 
-	"aurex/core"
-	"aurex/ledger"
-	"aurex/ledger/query"
+	"github.com/amezianechayer/aurex/core"
+	"github.com/amezianechayer/aurex/ledger"
+	"github.com/amezianechayer/aurex/ledger/query"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"

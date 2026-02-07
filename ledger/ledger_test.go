@@ -7,8 +7,8 @@ import (
 	"os"
 	"testing"
 
-	"aurex/config"
-	"aurex/core"
+	"github.com/amezianechayer/aurex/config"
+	"github.com/amezianechayer/aurex/core"
 
 	"go.uber.org/fx"
 )

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"aurex/api"
-	"aurex/config"
-	"aurex/ledger"
+	"github.com/amezianechayer/aurex/api"
+	"github.com/amezianechayer/aurex/config"
+	"github.com/amezianechayer/aurex/ledger"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/fx"

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"aurex/cmd"
+	"github.com/amezianechayer/aurex/cmd"
 )
 
 func main() {

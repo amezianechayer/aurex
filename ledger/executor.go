@@ -3,7 +3,7 @@ package ledger
 import (
 	"errors"
 
-	"aurex/core"
+	"github.com/amezianechayer/aurex/core"
 
 	"github.com/amezianechayer/aurex-vm/script/compiler"
 	"github.com/amezianechayer/aurex-vm/vm"

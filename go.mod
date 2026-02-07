@@ -1,4 +1,4 @@
-module aurex
+module github.com/amezianechayer/aurex
 
 go 1.16
 

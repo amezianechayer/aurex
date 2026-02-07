@@ -7,9 +7,9 @@ import (
 	"path"
 	"sort"
 
-	"aurex/config"
-	"aurex/core"
-	"aurex/ledger/query"
+	"github.com/amezianechayer/aurex/config"
+	"github.com/amezianechayer/aurex/core"
+	"github.com/amezianechayer/aurex/ledger/query"
 
 	_ "github.com/mattn/go-sqlite3"
 )
