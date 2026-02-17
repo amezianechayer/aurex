@@ -1,6 +1,6 @@
 FROM alpine:latest
 
-ADD aurex /usr/local/bin/aurex
+ADD dist/ledger_linux_amd64/aurex /usr/local/bin/aurex
 
 EXPOSE 3068
 

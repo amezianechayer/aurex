@@ -9,6 +9,7 @@
     "sqlite_opts": {
       "directory": "/home/kali/.aurex/storage",
       "db_name": "ledger"
-    }
+    },
+    "PostgresOpts": {}
   }
 }
