@@ -4,20 +4,21 @@ import (
 	"context"
 	_ "embed"
 
+	"github.com/amezianechayer/aurex/config"
 	"github.com/amezianechayer/aurex/core"
 	"github.com/amezianechayer/aurex/ledger"
 	"github.com/amezianechayer/aurex/ledger/query"
-
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 )
 
 type HttpAPI struct {
+	addr   string
 	engine *gin.Engine
 }
 
-func NewHttpAPI(lc fx.Lifecycle, l *ledger.Ledger) *HttpAPI {
+func NewHttpAPI(lc fx.Lifecycle, l *ledger.Ledger, c config.Config) *HttpAPI {
 	r := gin.Default()
 
 	r.Use(cors.Default())
@@ -57,19 +58,8 @@ func NewHttpAPI(lc fx.Lifecycle, l *ledger.Ledger) *HttpAPI {
 		err := l.Commit([]core.Transaction{t})
 
 		c.JSON(200, gin.H{
-			"ok": err == nil,
-		})
-	})
-
-	r.POST("/script", func(c *gin.Context) {
-		var script core.Script
-
-		c.ShouldBind(&script)
-
-		err := l.Execute(script)
-
-		c.JSON(200, gin.H{
-			"ok": err == nil,
+			"ok":  err == nil,
+			"err": err.Error(),
 		})
 	})
 
@@ -95,6 +85,7 @@ func NewHttpAPI(lc fx.Lifecycle, l *ledger.Ledger) *HttpAPI {
 
 	h := &HttpAPI{
 		engine: r,
+		addr:   c.Server.Http.BindAddress,
 	}
 
 	lc.Append(fx.Hook{
@@ -109,5 +100,5 @@ func NewHttpAPI(lc fx.Lifecycle, l *ledger.Ledger) *HttpAPI {
 }
 
 func (h *HttpAPI) Start() {
-	h.engine.Run("localhost:3068")
+	h.engine.Run(h.addr)
 }
