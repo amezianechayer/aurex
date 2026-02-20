@@ -3,7 +3,7 @@ module github.com/amezianechayer/aurex
 go 1.16
 
 require (
-	github.com/amezianechayer/aurex-vm v0.0.0-20260203205247-1ea63dc012f4
+	github.com/amezianechayer/aurex-vm v0.0.0-20260218133624-b211918472de
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.7.1
 	github.com/jackc/pgx/v4 v4.18.3

@@ -2,17 +2,15 @@ package ledger
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/amezianechayer/aurex-vm/script/compiler"
-	"github.com/amezianechayer/aurex-vm/vm"
 	"github.com/amezianechayer/aurex/config"
 	"github.com/amezianechayer/aurex/core"
 	"github.com/amezianechayer/aurex/ledger/query"
 	"github.com/amezianechayer/aurex/storage"
+	"github.com/amezianechayer/aurex/storage/sqlite"
 	"go.uber.org/fx"
 )
 
@@ -24,13 +22,12 @@ type Ledger struct {
 }
 
 func NewLedger(lc fx.Lifecycle, c config.Config) (*Ledger, error) {
-	store, err := storage.GetStore(c)
+	store, err := sqlite.NewStore(c)
+	store.Initialize()
 
 	if err != nil {
 		return nil, err
 	}
-
-	store.Initialize()
 
 	l := &Ledger{
 		store:  store,
@@ -78,19 +75,6 @@ func (l *Ledger) Commit(ts []core.Transaction) error {
 	last := l._last
 
 	for i := range ts {
-		if ts[i].Script != "" {
-			p, err := compiler.Compile(ts[i].Script)
-			m := vm.NewMachine(p)
-
-			if err != nil {
-				return err
-			}
-
-			if c := m.Execute(); c == vm.EXIT_FAIL {
-				return errors.New("script failed")
-			}
-		}
-
 		ts[i].ID = count + int64(i)
 		ts[i].Timestamp = timestamp
 
@@ -113,7 +97,7 @@ func (l *Ledger) Commit(ts []core.Transaction) error {
 	}
 
 	for addr := range rf {
-		if addr == "world" {
+		if addr == "@world" {
 			continue
 		}
 
@@ -141,10 +125,10 @@ func (l *Ledger) Commit(ts []core.Transaction) error {
 			balance, ok := balances[asset]
 
 			if !ok || balance < checks[asset] {
-				return errors.New(fmt.Sprintf(
+				return fmt.Errorf(
 					"balance.insufficient.%s",
 					asset,
-				))
+				)
 			}
 		}
 	}
