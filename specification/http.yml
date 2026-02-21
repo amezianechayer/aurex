@@ -38,11 +38,16 @@ components:
     transaction:
       type: object
       properties:
+        reference:
+          description: a unique reference (e.g. an ID in your system)
+          type: string
         postings:
           type: array
           items:
             $ref: "#/components/schemas/posting"
-        script:
+        timestamp:
+          type: string
+        hash:
           type: string
         metadata:
           type: object
@@ -53,6 +58,7 @@ components:
           type: string
         vars:
           type: object
+
 paths:
   /_info:
     get:
