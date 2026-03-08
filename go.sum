@@ -26,6 +26,7 @@ github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751/go.mod h1:LOuy
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/amezianechayer/aurex v0.1.1-0.20260217212914-044876c158c3/go.mod h1:WvyA3tOQWjZPnIt/brXEx15dXIubo0ax5JXVFrXZg6U=
+github.com/amezianechayer/aurex v0.1.1-0.20260222204219-0c177cd7a625/go.mod h1:IxrmBgTnG4ZpqRQbWxoBTojc/oZIKUK8EJmvdo6irbw=
 github.com/amezianechayer/aurex-vm v0.0.0-20260203205247-1ea63dc012f4 h1:dNsjhY/1WnGRObvnBZoeYj8r1EcbSsNyN7drMgtBxOk=
 github.com/amezianechayer/aurex-vm v0.0.0-20260203205247-1ea63dc012f4/go.mod h1:Xv+ghTZoivj1JDGjT16s5KPWQOYI/PxIP6hvKlVHD00=
 github.com/amezianechayer/aurex-vm v0.0.0-20260218133624-b211918472de h1:IwZVrymlDTStQIFgUeOiDJroscCm7V9fMZQN15xmOwo=
@@ -34,6 +35,10 @@ github.com/amezianechayer/aurex-vm v0.0.0-20260221002417-552b1c982395 h1:ofUYQZ8
 github.com/amezianechayer/aurex-vm v0.0.0-20260221002417-552b1c982395/go.mod h1:k7Fxo1EpBVAwAg4Sq3bilOmXakmWE9CjPYaQSjZVgKA=
 github.com/amezianechayer/aurex-vm v0.0.0-20260221002808-f80731186b29 h1:+TxMWSupAYh8eRwSLYl9fc7WD1Hu5FsThzEeZCZrits=
 github.com/amezianechayer/aurex-vm v0.0.0-20260221002808-f80731186b29/go.mod h1:k7Fxo1EpBVAwAg4Sq3bilOmXakmWE9CjPYaQSjZVgKA=
+github.com/amezianechayer/aurex-vm v0.0.0-20260307013836-5e3fe4d65190 h1:hd3hhbtmhI3W/erEWZep5UFIBFiV+lus3lvfw9subW4=
+github.com/amezianechayer/aurex-vm v0.0.0-20260307013836-5e3fe4d65190/go.mod h1:Ud906YI3ZH8NMfoUNM2UQaDOOP3lwnqBJ2yT2biJdBc=
+github.com/amezianechayer/aurex-vm v0.0.0-20260308230900-623dfd7ed7c8 h1:w2Ux/BCLSo1pGvys18tTbuwACbsKUvQ6daKKbkHhrd4=
+github.com/amezianechayer/aurex-vm v0.0.0-20260308230900-623dfd7ed7c8/go.mod h1:Ud906YI3ZH8NMfoUNM2UQaDOOP3lwnqBJ2yT2biJdBc=
 github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20210521184019-c5ad59b459ec h1:EEyRvzmpEUZ+I8WmD5cw/vY8EqhambkOqy5iFr0908A=
 github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20210521184019-c5ad59b459ec/go.mod h1:F7bn7fEU90QkQ3tnmaTx3LTKLEDqnwWODIYppRQ5hnY=
 github.com/apache/thrift v0.12.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
