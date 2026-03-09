@@ -3,3 +3,6 @@
 *.db-shm
 .aurex
 /dist/
+cmd/horizon*
+!cmd/horizon/.gitkeep
+.DS_Store
