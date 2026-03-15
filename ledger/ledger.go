@@ -7,38 +7,35 @@ import (
 	"sync"
 	"time"
 
-	"github.com/amezianechayer/aurex/config"
 	"github.com/amezianechayer/aurex/core"
 	"github.com/amezianechayer/aurex/ledger/query"
 	"github.com/amezianechayer/aurex/storage"
-	"github.com/amezianechayer/aurex/storage/sqlite"
 	"go.uber.org/fx"
 )
 
 type Ledger struct {
 	sync.Mutex
-	store  storage.Store
-	config config.Config
-	_last  *core.Transaction
+	name  string
+	store storage.Store
+	_last *core.Transaction
 }
 
-func NewLedger(lc fx.Lifecycle, c config.Config) (*Ledger, error) {
-	store, err := sqlite.NewStore(c)
-	store.Initialize()
+func NewLedger(name string, lc fx.Lifecycle) (*Ledger, error) {
+	store, err := storage.GetStore(name)
 
 	if err != nil {
 		return nil, err
 	}
+	store.Initialize()
 
 	l := &Ledger{
-		store:  store,
-		config: c,
+		store: store,
+		name:  name,
 	}
 
 	lc.Append(fx.Hook{
 		OnStart: func(c context.Context) error {
 			fmt.Println("starting ledger")
-			fmt.Println(l.config)
 			return nil
 		},
 		OnStop: func(c context.Context) error {

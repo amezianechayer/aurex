@@ -1,12 +1,12 @@
 package storage
 
 import (
-	"github.com/amezianechayer/aurex/config"
 	"github.com/amezianechayer/aurex/core"
 	"github.com/amezianechayer/aurex/ledger/query"
 	"github.com/amezianechayer/aurex/storage/postgres"
 	"github.com/amezianechayer/aurex/storage/sqlite"
 	"github.com/pkg/errors"
+	"github.com/spf13/viper"
 )
 
 type Store interface {
@@ -20,18 +20,20 @@ type Store interface {
 	Close()
 }
 
-func GetStore(c config.Config) (Store, error) {
-	switch c.Storage.Driver {
+func GetStore(name string) (Store, error) {
+	driver := viper.GetString("storage.driver")
+
+	switch driver {
 	case "sqlite":
-		return sqlite.NewStore(c)
+		return sqlite.NewStore(name)
 	case "postgres":
-		return postgres.NewStore(c)
+		return postgres.NewStore(name)
 	default:
 		break
 	}
 
 	panic(errors.Errorf(
 		"unsupported store: %s",
-		c.Storage.Driver,
+		driver,
 	))
 }
