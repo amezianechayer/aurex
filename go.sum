@@ -65,6 +65,8 @@ github.com/amezianechayer/aurex-vm v0.0.0-20260307013836-5e3fe4d65190 h1:hd3hhbt
 github.com/amezianechayer/aurex-vm v0.0.0-20260307013836-5e3fe4d65190/go.mod h1:Ud906YI3ZH8NMfoUNM2UQaDOOP3lwnqBJ2yT2biJdBc=
 github.com/amezianechayer/aurex-vm v0.0.0-20260308230900-623dfd7ed7c8 h1:w2Ux/BCLSo1pGvys18tTbuwACbsKUvQ6daKKbkHhrd4=
 github.com/amezianechayer/aurex-vm v0.0.0-20260308230900-623dfd7ed7c8/go.mod h1:Ud906YI3ZH8NMfoUNM2UQaDOOP3lwnqBJ2yT2biJdBc=
+github.com/amezianechayer/aurex-vm v0.0.0-20260318144625-3758535b0013 h1:Uip0Cgg4XrN1LidjT1U34PzXMrFN47Ikv+Tao7WXTVE=
+github.com/amezianechayer/aurex-vm v0.0.0-20260318144625-3758535b0013/go.mod h1:f772FFdKvdufDnuh9f3PJB/iuq74I4nYgnEAJoy0YNI=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20210521184019-c5ad59b459ec h1:EEyRvzmpEUZ+I8WmD5cw/vY8EqhambkOqy5iFr0908A=
 github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20210521184019-c5ad59b459ec/go.mod h1:F7bn7fEU90QkQ3tnmaTx3LTKLEDqnwWODIYppRQ5hnY=
@@ -225,6 +227,7 @@ github.com/google/go-cmp v0.5.2/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/
 github.com/google/go-cmp v0.5.3/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
 github.com/google/go-cmp v0.5.4/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
 github.com/google/go-cmp v0.5.5/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
+github.com/google/go-cmp v0.5.6/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
 github.com/google/gofuzz v1.0.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
 github.com/google/martian v2.1.0+incompatible/go.mod h1:9I4somxYTbIHy5NJKHRl3wXiIaQGbYVAs8BPL6v8lEs=
 github.com/google/martian/v3 v3.0.0/go.mod h1:y5Zk1BBys9G+gd6Jrk0W3cC1+ELVxBWuIGO+w/tUAp0=

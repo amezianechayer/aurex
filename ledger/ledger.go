@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
+	"github.com/amezianechayer/aurex-vm/script/compiler"
+	"github.com/amezianechayer/aurex-vm/vm"
 	"github.com/amezianechayer/aurex/core"
 	"github.com/amezianechayer/aurex/ledger/query"
 	"github.com/amezianechayer/aurex/storage"
@@ -26,7 +29,14 @@ func NewLedger(name string, lc fx.Lifecycle) (*Ledger, error) {
 	if err != nil {
 		return nil, err
 	}
-	store.Initialize()
+
+	err = store.Initialize()
+
+	if err != nil {
+		err = fmt.Errorf("failed to initialize store: %w", err)
+		log.Println(err)
+		return nil, err
+	}
 
 	l := &Ledger{
 		store: store,
@@ -35,11 +45,11 @@ func NewLedger(name string, lc fx.Lifecycle) (*Ledger, error) {
 
 	lc.Append(fx.Hook{
 		OnStart: func(c context.Context) error {
-			fmt.Println("starting ledger")
+			log.Printf("starting ledger %s\n", l.name)
 			return nil
 		},
 		OnStop: func(c context.Context) error {
-			fmt.Println("closing ledger")
+			log.Printf("closing ledger %s\n", l.name)
 			l.Close()
 			return nil
 		},
@@ -73,8 +83,17 @@ func (l *Ledger) Commit(ts []core.Transaction) error {
 	last := l._last
 
 	for i := range ts {
-		if len(ts[i].Postings) == 0 {
-			return errors.New("transaction has no postings")
+		if ts[i].Script != "" {
+			p, err := compiler.Compile(ts[i].Script)
+			m := vm.NewMachine(p)
+
+			if err != nil {
+				return err
+			}
+
+			if c := m.Execute(); c == vm.EXIT_FAIL {
+				return errors.New("script failed")
+			}
 		}
 
 		ts[i].ID = count + int64(i)
@@ -99,7 +118,7 @@ func (l *Ledger) Commit(ts []core.Transaction) error {
 	}
 
 	for addr := range rf {
-		if addr == "@world" {
+		if addr == "world" {
 			continue
 		}
 
@@ -127,10 +146,10 @@ func (l *Ledger) Commit(ts []core.Transaction) error {
 			balance, ok := balances[asset]
 
 			if !ok || balance < checks[asset] {
-				return fmt.Errorf(
+				return errors.New(fmt.Sprintf(
 					"balance.insufficient.%s",
 					asset,
-				)
+				))
 			}
 		}
 	}

@@ -2,11 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/amezianechayer/aurex/api"
 	"github.com/amezianechayer/aurex/config"
 	"github.com/amezianechayer/aurex/ledger"
+	"github.com/amezianechayer/aurex/storage"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
@@ -30,7 +32,6 @@ func Execute() {
 		Run: func(cmd *cobra.Command, args []string) {
 			app := fx.New(
 				fx.Provide(
-					config.GetConfig,
 					ledger.NewResolver,
 					api.NewHttpAPI,
 				),
@@ -62,9 +63,32 @@ func Execute() {
 		},
 	})
 
+	store := &cobra.Command{
+		Use: "storage",
+	}
+
+	store.AddCommand(&cobra.Command{
+		Use: "init",
+		Run: func(cmd *cobra.Command, args []string) {
+			config.Init()
+			s, err := storage.GetStore("default")
+
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			err = s.Initialize()
+
+			if err != nil {
+				log.Fatal(err)
+			}
+		},
+	})
+
 	root.AddCommand(server)
 	root.AddCommand(conf)
 	root.AddCommand(UICmd)
+	root.AddCommand(store)
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

@@ -1,8 +1,6 @@
 package sqlite
 
 import (
-	"fmt"
-
 	"github.com/amezianechayer/aurex/core"
 	"github.com/amezianechayer/aurex/ledger/query"
 	"github.com/huandu/go-sqlbuilder"
@@ -36,7 +34,6 @@ func (s *SQLiteStore) FindAccounts(q query.Query) (query.Cursor, error) {
 	sb.
 		Select("address").
 		From("addresses").
-		Where(sb.Equal("ledger", s.ledger)).
 		GroupBy("address").
 		OrderBy("address desc").
 		Limit(q.Limit)
@@ -46,8 +43,6 @@ func (s *SQLiteStore) FindAccounts(q query.Query) (query.Cursor, error) {
 	}
 
 	sqlq, args := sb.BuildWithFlavor(sqlbuilder.SQLite)
-
-	fmt.Println(sqlq, args)
 
 	rows, err := s.db.Query(
 		sqlq,
