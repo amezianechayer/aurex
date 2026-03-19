@@ -67,6 +67,8 @@ github.com/amezianechayer/aurex-vm v0.0.0-20260308230900-623dfd7ed7c8 h1:w2Ux/BC
 github.com/amezianechayer/aurex-vm v0.0.0-20260308230900-623dfd7ed7c8/go.mod h1:Ud906YI3ZH8NMfoUNM2UQaDOOP3lwnqBJ2yT2biJdBc=
 github.com/amezianechayer/aurex-vm v0.0.0-20260318144625-3758535b0013 h1:Uip0Cgg4XrN1LidjT1U34PzXMrFN47Ikv+Tao7WXTVE=
 github.com/amezianechayer/aurex-vm v0.0.0-20260318144625-3758535b0013/go.mod h1:f772FFdKvdufDnuh9f3PJB/iuq74I4nYgnEAJoy0YNI=
+github.com/amezianechayer/aurex-vm v0.0.0-20260319105240-2db3101fb9a6 h1:I8bUBwfD6vpLfMgIdHn9FpRqUHLFVc+lqYC0pT/k9yU=
+github.com/amezianechayer/aurex-vm v0.0.0-20260319105240-2db3101fb9a6/go.mod h1:f772FFdKvdufDnuh9f3PJB/iuq74I4nYgnEAJoy0YNI=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20210521184019-c5ad59b459ec h1:EEyRvzmpEUZ+I8WmD5cw/vY8EqhambkOqy5iFr0908A=
 github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20210521184019-c5ad59b459ec/go.mod h1:F7bn7fEU90QkQ3tnmaTx3LTKLEDqnwWODIYppRQ5hnY=

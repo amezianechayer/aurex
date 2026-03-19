@@ -41,19 +41,19 @@ func TestTransactionFail(t *testing.T) {
 
 func TestSend(t *testing.T) {
 	with(func(l *Ledger) {
-		defer l.Close() // changé
+		defer l.Close()
 		script := core.Script{
 			Plain: "transfer [DZD.2 99] from @world to @user:001",
 		}
-		err := l.Execute(script) // ajouté
-		if err != nil {          // ajouté
+		err := l.Execute(script)
+		if err != nil {
 			t.Error(err)
 			return
 		}
 		user, err := l.GetAccount("@user:001")
 		if err != nil {
 			t.Error(err)
-			return // ajouté
+			return
 		}
 		if b := user.Balances["DZD.2"]; b != 99 {
 			t.Error(fmt.Sprintf(
@@ -65,13 +65,13 @@ func TestSend(t *testing.T) {
 	})
 }
 
-func TestVariables(t *testing.T) { // ajouté
+func TestVariables(t *testing.T) {
 	with(func(l *Ledger) {
 		defer l.Close()
 		var script core.Script
 		json.Unmarshal(
 			[]byte(`{
-				"plain": "{\nvar $dest: account\n}\ntransfer [DZD.2 42]\n\tfrom @world\n\tto $dest",
+				"plain": "var $dest: account\ntransfer [DZD.2 42] from @world to $dest\n",
 				"vars": {
 					"dest": "@user:042"
 				}
@@ -93,6 +93,70 @@ func TestVariables(t *testing.T) { // ajouté
 				42,
 				b,
 			))
+		}
+	})
+}
+
+func TestEnoughFunds(t *testing.T) {
+	with(func(l *Ledger) {
+		defer l.Close()
+		tx := core.Transaction{
+			Postings: []core.Posting{
+				{
+					Source:      "@world",
+					Destination: "@user:001",
+					Amount:      100,
+					Asset:       "DZD.2",
+				},
+			},
+		}
+		err := l.Commit([]core.Transaction{tx})
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		var script core.Script
+		json.Unmarshal(
+			[]byte(`{
+				"plain": "transfer [DZD.2 95] from @user:001 to @world\n"
+			}`),
+			&script)
+		err = l.Execute(script)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+	})
+}
+
+func TestNotEnoughFunds(t *testing.T) {
+	with(func(l *Ledger) {
+		defer l.Close()
+		tx := core.Transaction{
+			Postings: []core.Posting{
+				{
+					Source:      "@world",
+					Destination: "@user:002",
+					Amount:      100,
+					Asset:       "DZD.2",
+				},
+			},
+		}
+		err := l.Commit([]core.Transaction{tx})
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		var script core.Script
+		json.Unmarshal(
+			[]byte(`{
+				"plain": "transfer [DZD.2 105] from @user:002 to @world\n"
+			}`),
+			&script)
+		err = l.Execute(script)
+		if err == nil {
+			t.Error("error wasn't supposed to be nil")
+			return
 		}
 	})
 }
