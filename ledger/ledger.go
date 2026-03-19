@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/amezianechayer/aurex/config"
 	"github.com/amezianechayer/aurex/core"
 	"github.com/amezianechayer/aurex/ledger/query"
 	"github.com/amezianechayer/aurex/storage"
@@ -54,6 +55,7 @@ func (l *Ledger) Close() {
 }
 
 func (l *Ledger) Commit(ts []core.Transaction) error {
+	defer config.Remember(l.name)
 	l.Lock()
 	defer l.Unlock()
 	count, _ := l.store.CountTransactions()
