@@ -5,8 +5,8 @@ info:
   version: 1.0.0-alpha
 
 servers:
-  - url: https://amezianechayer.github.io/aurex
-    description: public demo
+  - url: https://localhost:3068
+    description: local
 
 
 components:
