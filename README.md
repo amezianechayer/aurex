@@ -22,12 +22,12 @@ curl -X POST \
     "postings": [
       {
         "source": "@world",
-        "destination": "@central-bank",
+        "destination": "@central_bank",
         "asset": "DZD.2",
         "amount": 10000
       },
       {
-        "source": "@central-bank",
+        "source": "@central_bank",
         "destination": "@users:001",
         "asset": "DZD.2",
         "amount": 10000
