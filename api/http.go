@@ -52,7 +52,6 @@ func NewHttpAPI(lc fx.Lifecycle, resolver *ledger.Resolver) *HttpAPI {
 				"storage": gin.H{
 					"driver": viper.Get("storage.driver"),
 				},
-				"ledgers": viper.Get("ledgers"),
 			},
 		})
 	})
@@ -104,9 +103,15 @@ func NewHttpAPI(lc fx.Lifecycle, resolver *ledger.Resolver) *HttpAPI {
 
 		err := l.(*ledger.Ledger).Execute(script)
 
-		c.JSON(200, gin.H{
+		res := gin.H{
 			"ok": err == nil,
-		})
+		}
+
+		if err != nil {
+			res["err"] = err.Error()
+		}
+
+		c.JSON(200, res)
 	})
 
 	r.GET("/:ledger/accounts", func(c *gin.Context) {
