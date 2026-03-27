@@ -3,12 +3,13 @@ module github.com/amezianechayer/aurex
 go 1.16
 
 require (
-	github.com/amezianechayer/aurex-vm v0.0.0-20260324134116-d82580154038
+	github.com/amezianechayer/aurex-vm v0.0.0-20260321152228-5741d97e95fa
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.7.1
 	github.com/huandu/go-sqlbuilder v1.12.1 // indirect
 	github.com/jackc/pgx/v4 v4.18.3
 	github.com/kelseyhightower/envconfig v1.4.0 // indirect
+	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
 	github.com/mattn/go-sqlite3 v1.14.7
 	github.com/pkg/errors v0.8.1
 	github.com/spf13/cobra v1.1.3

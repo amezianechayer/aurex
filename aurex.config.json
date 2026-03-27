@@ -1,17 +1,14 @@
 {
   "server": {
     "http": {
-      "bind_address": ""
+      "bind_address": "127.0.0.1:3068"
     }
   },
   "storage": {
-    "driver": "",
+    "driver": "sqlite",
     "sqlite_opts": {
       "directory": "/home/kali/.aurex/storage",
-      "db_name": ""
-    },
-    "PostgresOpts": {
-      "conn_string": ""
+      "db_name": "ledger"
     }
   }
 }

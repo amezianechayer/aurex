@@ -1,0 +1,9 @@
+
+transfer [DZD.2 7000] from @world to @paiements:002
+
+transfer [DZD.2 7000] from @paiements:002 to @courses:0235:pourboire
+
+transfer [DZD.2 7000] from @courses:0235:pourboire
+send 70/100 to @chauffeurs:050
+send 30/100 to @plateforme:frais
+

@@ -1,0 +1,5 @@
+
+transfer [DZD.2 5000] from @courses:0234:pourboire
+send 85/100 to @chauffeurs:048
+send 15/100 to @plateforme:frais
+

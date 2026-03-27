@@ -102,7 +102,7 @@ func (l *Ledger) Commit(ts []core.Transaction) error {
 	}
 
 	for addr := range rf {
-		if addr == "world" {
+		if addr == "@world" {
 			continue
 		}
 
