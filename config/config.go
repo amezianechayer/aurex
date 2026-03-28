@@ -15,23 +15,23 @@ func Init() {
 		home = "/root"
 	}
 
-	os.MkdirAll(path.Join(home, ".aurex", "data"), 0700)
+	os.MkdirAll(path.Join(home, ".corren", "data"), 0700)
 
 	viper.SetDefault("debug", false)
 	viper.SetDefault("storage.driver", "sqlite")
-	viper.SetDefault("storage.dir", path.Join(home, ".aurex/data"))
-	viper.SetDefault("storage.sqlite.db_name", "aurex")
+	viper.SetDefault("storage.dir", path.Join(home, ".corren/data"))
+	viper.SetDefault("storage.sqlite.db_name", "corren")
 	viper.SetDefault("storage.postgres.conn_string", "postgresql://localhost/postgres")
 	viper.SetDefault("server.http.bind_address", "localhost:3068")
 	viper.SetDefault("ledgers", []string{"quickstart"})
 
-	viper.SetConfigName("aurex")
+	viper.SetConfigName("corren")
 	viper.SetConfigType("yaml")
-	viper.AddConfigPath("$HOME/.aurex")
-	viper.AddConfigPath("/etc/aurex")
+	viper.AddConfigPath("$HOME/.corren")
+	viper.AddConfigPath("/etc/corren")
 	viper.ReadInConfig()
 
-	viper.SetEnvPrefix("aurex")
+	viper.SetEnvPrefix("corren")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 }

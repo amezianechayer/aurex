@@ -8,7 +8,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/amezianechayer/aurex/core"
+	"github.com/amezianechayer/corren/core"
 	"github.com/huandu/go-sqlbuilder"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/viper"

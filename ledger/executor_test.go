@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/amezianechayer/aurex/core"
+	"github.com/amezianechayer/corren/core"
 )
 
 func TestTransactionInvalidScript(t *testing.T) {

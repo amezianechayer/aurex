@@ -3,8 +3,8 @@ package postgres
 import (
 	"context"
 
-	"github.com/amezianechayer/aurex/core"
-	"github.com/amezianechayer/aurex/ledger/query"
+	"github.com/amezianechayer/corren/core"
+	"github.com/amezianechayer/corren/ledger/query"
 	"github.com/huandu/go-sqlbuilder"
 )
 

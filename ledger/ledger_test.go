@@ -8,10 +8,10 @@ import (
 	"path"
 	"testing"
 
-	"github.com/amezianechayer/aurex/config"
+	"github.com/amezianechayer/corren/config"
 	"github.com/spf13/viper"
 
-	"github.com/amezianechayer/aurex/core"
+	"github.com/amezianechayer/corren/core"
 	"go.uber.org/fx"
 )
 

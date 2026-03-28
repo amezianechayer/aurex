@@ -5,9 +5,9 @@ import (
 	_ "embed"
 	"strings"
 
-	"github.com/amezianechayer/aurex/core"
-	"github.com/amezianechayer/aurex/ledger"
-	"github.com/amezianechayer/aurex/ledger/query"
+	"github.com/amezianechayer/corren/core"
+	"github.com/amezianechayer/corren/ledger"
+	"github.com/amezianechayer/corren/ledger/query"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
@@ -55,7 +55,7 @@ func NewHttpAPI(lc fx.Lifecycle, resolver *ledger.Resolver) *HttpAPI {
 
 	r.GET("/_info", func(c *gin.Context) {
 		c.JSON(200, gin.H{
-			"server":  "aurex-ledger",
+			"server":  "corren-ledger",
 			"version": "1.0.0-alpha.1",
 			"config": gin.H{
 				"storage": gin.H{

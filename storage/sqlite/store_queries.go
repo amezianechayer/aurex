@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/amezianechayer/aurex/ledger/query"
+	"github.com/amezianechayer/corren/ledger/query"
 )
 
 func (s *SQLiteStore) queryTransactions(q query.Query) (string, []interface{}) {

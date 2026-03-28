@@ -1,10 +1,10 @@
 package storage
 
 import (
-	"github.com/amezianechayer/aurex/core"
-	"github.com/amezianechayer/aurex/ledger/query"
-	"github.com/amezianechayer/aurex/storage/postgres"
-	"github.com/amezianechayer/aurex/storage/sqlite"
+	"github.com/amezianechayer/corren/core"
+	"github.com/amezianechayer/corren/ledger/query"
+	"github.com/amezianechayer/corren/storage/postgres"
+	"github.com/amezianechayer/corren/storage/sqlite"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 )

@@ -10,10 +10,10 @@ import (
 	"os"
 	"regexp"
 
-	"github.com/amezianechayer/aurex/api"
-	"github.com/amezianechayer/aurex/config"
-	"github.com/amezianechayer/aurex/ledger"
-	"github.com/amezianechayer/aurex/storage"
+	"github.com/amezianechayer/corren/api"
+	"github.com/amezianechayer/corren/config"
+	"github.com/amezianechayer/corren/ledger"
+	"github.com/amezianechayer/corren/storage"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -25,7 +25,7 @@ var (
 )
 
 var root = &cobra.Command{
-	Use: "aurex",
+	Use: "corren",
 }
 
 func Execute() {

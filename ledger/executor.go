@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/amezianechayer/aurex-vm/script/compiler"
-	"github.com/amezianechayer/aurex-vm/vm"
-	"github.com/amezianechayer/aurex/core"
+	"github.com/amezianechayer/corren-vm/script/compiler"
+	"github.com/amezianechayer/corren-vm/vm"
+	"github.com/amezianechayer/corren/core"
 )
 
 func (l *Ledger) Execute(script core.Script) error {
