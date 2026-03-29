@@ -13,48 +13,64 @@ func (l *Ledger) Execute(script core.Script) error {
 	if script.Plain == "" {
 		return errors.New("no script to execute")
 	}
+
 	p, err := compiler.Compile(script.Plain)
 	if err != nil {
 		return fmt.Errorf("compile error: %v", err)
 	}
+
 	m := vm.NewMachine(p)
+
 	err = m.SetVarsFromJSON(script.Vars)
 	if err != nil {
 		return fmt.Errorf("error while setting variables: %v", err)
 	}
-	needed_balances, err := m.GetNeededBalances()
-	if err != nil {
-		return err
-	}
-	balances := map[string]map[string]uint64{}
-	for account_address, needed_assets := range needed_balances {
-		account, err := l.GetAccount(account_address)
+
+	{
+		ch, err := m.ResolveResources()
 		if err != nil {
-			return fmt.Errorf("invalid account address: %v\n", err)
+			return fmt.Errorf("error while resolving resources: %v", err)
 		}
-		balances[account_address] = map[string]uint64{}
-		for asset := range needed_assets {
-			amt := account.Balances[asset]
+		for req := range ch {
+			if req.Error != nil {
+				return fmt.Errorf("error in resource request: %v", req.Error)
+			}
+			req.Response <- nil
+		}
+	}
+
+	{
+		ch, err := m.ResolveBalances()
+		if err != nil {
+			return fmt.Errorf("error while resolving balances: %v", err)
+		}
+		for req := range ch {
+			if req.Error != nil {
+				return fmt.Errorf("error in balance request: %v", req.Error)
+			}
+			balances, err := l.store.AggregateBalances(req.Account)
+			if err != nil {
+				return fmt.Errorf("error fetching balance of %s: %v", req.Account, err)
+			}
+			amt := balances[req.Asset]
 			if amt < 0 {
 				amt = 0
 			}
-			balances[account_address][asset] = uint64(amt)
+			req.Response <- uint64(amt)
 		}
 	}
-	err = m.SetBalances(balances)
-	if err != nil {
-		return err
-	}
-	c, err := m.Execute()
+
+	exit_code, err := m.Execute()
 	if err != nil {
 		return fmt.Errorf("script failed: %v", err)
 	}
-	if c == vm.EXIT_FAIL {
+	if exit_code == vm.EXIT_FAIL {
 		return errors.New("script exited with error code EXIT_FAIL")
 	}
+
 	t := core.Transaction{
 		Postings: m.Postings,
 	}
-	err = l.Commit([]core.Transaction{t})
-	return err
+
+	return l.Commit([]core.Transaction{t})
 }

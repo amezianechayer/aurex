@@ -3,7 +3,7 @@ module github.com/amezianechayer/corren
 go 1.16
 
 require (
-	github.com/amezianechayer/corren-vm v0.1.12
+	github.com/amezianechayer/corren-vm v0.1.13
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.7.1
 	github.com/huandu/go-sqlbuilder v1.12.1
@@ -15,3 +15,4 @@ require (
 	go.uber.org/fx v1.13.1
 )
 
+replace github.com/amezianechayer/corren-vm => ../corren-vm
