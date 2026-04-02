@@ -1,17 +1,19 @@
 package ledger
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
 	"os"
 	"path"
+	"reflect"
 	"testing"
 
 	"github.com/amezianechayer/corren/config"
-	"github.com/spf13/viper"
-
 	"github.com/amezianechayer/corren/core"
+	"github.com/amezianechayer/corren/ledger/query"
+	"github.com/spf13/viper"
 	"go.uber.org/fx"
 )
 
@@ -23,11 +25,9 @@ func with(f func(l *Ledger)) {
 		fx.Provide(
 			func(lc fx.Lifecycle) (*Ledger, error) {
 				l, err := NewLedger("test", lc)
-
 				if err != nil {
 					return nil, err
 				}
-
 				return l, nil
 			},
 		),
@@ -41,11 +41,9 @@ func with(f func(l *Ledger)) {
 func TestMain(m *testing.M) {
 	config.Init()
 
-	// viper.Set("storage.driver", "postgres")
 	viper.Set("storage.dir", os.TempDir())
 	viper.Set("storage.sqlite.db_name", "ledger")
 	fmt.Println(viper.AllSettings())
-
 	os.Remove(path.Join(os.TempDir(), "ledger_test.db"))
 
 	m.Run()
@@ -56,10 +54,12 @@ func TestTransaction(t *testing.T) {
 		testsize := 1e4
 		total := 0
 		batch := []core.Transaction{}
+
 		for i := 1; i <= int(testsize); i++ {
 			user := fmt.Sprintf("@users:%03d", 1+rand.Intn(100))
 			amount := 100
 			total += amount
+
 			batch = append(batch, core.Transaction{
 				Postings: []core.Posting{
 					{
@@ -76,20 +76,26 @@ func TestTransaction(t *testing.T) {
 					},
 				},
 			})
+
 			if i%int(1e3) != 0 {
 				continue
 			}
+
 			fmt.Println(i)
+
 			err := l.Commit(batch)
 			if err != nil {
 				t.Error(err)
 			}
+
 			batch = []core.Transaction{}
 		}
+
 		world, err := l.GetAccount("@world")
 		if err != nil {
 			t.Error(err)
 		}
+
 		expected := int64(-1 * total)
 		if b := world.Balances["GEM"]; b != expected {
 			t.Error(fmt.Sprintf(
@@ -98,6 +104,7 @@ func TestTransaction(t *testing.T) {
 				b,
 			))
 		}
+
 		l.Close()
 	})
 }
@@ -111,14 +118,15 @@ func TestBalance(t *testing.T) {
 						Source:      "@empty_wallet",
 						Destination: "@world",
 						Amount:      1,
-						Asset:       "COIN",
+						Asset:       "DZD.2",
 					},
 				},
 			},
 		})
+
 		if err == nil {
 			t.Error(errors.New(
-				"balance was insufficient yet the transation was commited",
+				"balance was insufficient yet the transaction was commited",
 			))
 		}
 	})
@@ -133,14 +141,16 @@ func TestReference(t *testing.T) {
 					Source:      "@world",
 					Destination: "@payments:001",
 					Amount:      100,
-					Asset:       "COIN",
+					Asset:       "DZD.2",
 				},
 			},
 		}
+
 		err := l.Commit([]core.Transaction{tx})
 		if err != nil {
 			t.Error(err)
 		}
+
 		err = l.Commit([]core.Transaction{tx})
 		if err == nil {
 			t.Fail()
@@ -157,6 +167,138 @@ func TestLast(t *testing.T) {
 	})
 }
 
+func TestAccountMetadata(t *testing.T) {
+	with(func(l *Ledger) {
+		l.SaveMeta("account", "@users:001", core.Metadata{
+			"a random metadata": json.RawMessage(`"old value"`),
+		})
+		l.SaveMeta("account", "@users:001", core.Metadata{
+			"a random metadata": json.RawMessage(`"new value"`),
+		})
+
+		{
+			acc, err := l.GetAccount("@users:001")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if meta, ok := acc.Metadata["a random metadata"]; ok {
+				var value string
+				err := json.Unmarshal(meta, &value)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if value != "new value" {
+					t.Fatalf("metadata entry did not match in get: expected \"new value\", got %v", value)
+				}
+			}
+		}
+
+		{
+			cursor, err := l.FindAccounts(query.Account("@users:001"))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			accounts, ok := cursor.Data.([]core.Account)
+			if !ok {
+				t.Fatalf("wrong cursor type: %v", reflect.TypeOf(cursor.Data))
+			}
+			if len(accounts) == 0 {
+				t.Fatal("no accounts returned by find")
+			}
+
+			if meta, ok := accounts[0].Metadata["a random metadata"]; ok {
+				var value string
+				err := json.Unmarshal(meta, &value)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if value != "new value" {
+					t.Fatalf("metadata entry did not match in find: expected \"new value\", got %v", value)
+				}
+			}
+		}
+	})
+}
+
+func TestTransactionMetadata(t *testing.T) {
+	with(func(l *Ledger) {
+		l.Commit([]core.Transaction{{
+			Postings: []core.Posting{
+				{
+					Source:      "@world",
+					Destination: "@payments:001",
+					Amount:      100,
+					Asset:       "DZD.2",
+				},
+			},
+		}})
+
+		tx, err := l.GetLastTransaction()
+		if err != nil {
+			t.Error(err)
+		}
+
+		l.SaveMeta("transaction", fmt.Sprintf("%d", tx.ID), core.Metadata{
+			"a random metadata": json.RawMessage(`"old value"`),
+		})
+		l.SaveMeta("transaction", fmt.Sprintf("%d", tx.ID), core.Metadata{
+			"a random metadata": json.RawMessage(`"new value"`),
+		})
+
+		tx, err = l.GetLastTransaction()
+		if err != nil {
+			t.Error(err)
+		}
+
+		if meta, ok := tx.Metadata["a random metadata"]; ok {
+			var value string
+			err := json.Unmarshal(meta, &value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if value != "new value" {
+				t.Fatalf("metadata entry did not match: expected \"new value\", got %v", value)
+			}
+		}
+	})
+}
+
+func TestSaveTransactionMetadata(t *testing.T) {
+	with(func(l *Ledger) {
+		l.Commit([]core.Transaction{{
+			Postings: []core.Posting{
+				{
+					Source:      "@world",
+					Destination: "@payments:001",
+					Amount:      100,
+					Asset:       "DZD.2",
+				},
+			},
+			Metadata: core.Metadata{
+				"a metadata": json.RawMessage(`"a value"`),
+			},
+		}})
+
+		tx, err := l.GetLastTransaction()
+		if err != nil {
+			t.Error(err)
+		}
+
+		if meta, ok := tx.Metadata["a metadata"]; ok {
+			var value string
+			err := json.Unmarshal(meta, &value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if value != "a value" {
+				t.Fatalf("metadata entry did not match: expected \"a value\", got %v", value)
+			}
+		}
+	})
+}
+
 func BenchmarkTransaction1(b *testing.B) {
 	with(func(l *Ledger) {
 		for n := 0; n < b.N; n++ {
@@ -166,7 +308,7 @@ func BenchmarkTransaction1(b *testing.B) {
 					{
 						Source:      "@world",
 						Destination: "@benchmark",
-						Asset:       "COIN",
+						Asset:       "DZD.2",
 						Amount:      10,
 					},
 				},
@@ -187,7 +329,7 @@ func BenchmarkTransaction_20_1k(b *testing.B) {
 							{
 								Source:      "@world",
 								Destination: "@benchmark",
-								Asset:       "COIN",
+								Asset:       "DZD.2",
 								Amount:      10,
 							},
 						},
