@@ -1,0 +1,14 @@
+{
+  "server": {
+    "http": {
+      "bind_address": "127.0.0.1:3068"
+    }
+  },
+  "storage": {
+    "driver": "sqlite",
+    "sqlite_opts": {
+      "directory": "/home/kali/.corren/storage",
+      "db_name": "ledger"
+    }
+  }
+}

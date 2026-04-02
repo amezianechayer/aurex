@@ -14,5 +14,3 @@ require (
 	github.com/spf13/viper v1.8.1
 	go.uber.org/fx v1.13.1
 )
-
-replace github.com/amezianechayer/corren-vm => ../corren-vm
