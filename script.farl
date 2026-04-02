@@ -1,0 +1,4 @@
+transfer [DZD.2 10000] (
+  from @world
+  to   @banque:reserve
+)

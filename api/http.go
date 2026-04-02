@@ -21,14 +21,12 @@ type HttpAPI struct {
 
 func NewHttpAPI(lc fx.Lifecycle, resolver *ledger.Resolver) *HttpAPI {
 	gin.SetMode(gin.ReleaseMode)
-
 	r := gin.Default()
 	r.Use(cors.Default())
 	r.Use(gin.Recovery())
 
 	if auth := viper.Get("server.http.basic_auth"); auth != nil {
 		segment := strings.Split(auth.(string), ":")
-
 		r.Use(gin.BasicAuth(gin.Accounts{
 			segment[0]: segment[1],
 		}))
@@ -36,20 +34,16 @@ func NewHttpAPI(lc fx.Lifecycle, resolver *ledger.Resolver) *HttpAPI {
 
 	r.Use(func(c *gin.Context) {
 		name := c.Param("ledger")
-
 		if name == "" {
 			return
 		}
-
 		l, err := resolver.GetLedger(name)
-
 		if err != nil {
 			c.JSON(400, gin.H{
 				"ok":  false,
 				"err": err.Error(),
 			})
 		}
-
 		c.Set("ledger", l)
 	})
 
@@ -68,9 +62,7 @@ func NewHttpAPI(lc fx.Lifecycle, resolver *ledger.Resolver) *HttpAPI {
 
 	r.GET("/:ledger/stats", func(c *gin.Context) {
 		l, _ := c.Get("ledger")
-
 		stats, err := l.(*ledger.Ledger).Stats()
-
 		c.JSON(200, gin.H{
 			"ok":    err == nil,
 			"stats": stats,
@@ -79,12 +71,10 @@ func NewHttpAPI(lc fx.Lifecycle, resolver *ledger.Resolver) *HttpAPI {
 
 	r.GET("/:ledger/transactions", func(c *gin.Context) {
 		l, _ := c.Get("ledger")
-
 		cursor, err := l.(*ledger.Ledger).FindTransactions(
 			query.After(c.Query("after")),
 			query.Account(c.Query("account")),
 		)
-
 		c.JSON(200, gin.H{
 			"ok":     err == nil,
 			"cursor": cursor,
@@ -94,12 +84,9 @@ func NewHttpAPI(lc fx.Lifecycle, resolver *ledger.Resolver) *HttpAPI {
 
 	r.POST("/:ledger/transactions", func(c *gin.Context) {
 		l, _ := c.Get("ledger")
-
 		var t core.Transaction
 		c.ShouldBind(&t)
-
 		err := l.(*ledger.Ledger).Commit([]core.Transaction{t})
-
 		c.JSON(200, gin.H{
 			"ok": err == nil,
 		})
@@ -107,56 +94,45 @@ func NewHttpAPI(lc fx.Lifecycle, resolver *ledger.Resolver) *HttpAPI {
 
 	r.POST("/:ledger/script", func(c *gin.Context) {
 		l, _ := c.Get("ledger")
-
 		var script core.Script
 		c.ShouldBind(&script)
-
 		err := l.(*ledger.Ledger).Execute(script)
-
 		res := gin.H{
 			"ok": err == nil,
 		}
-
 		if err != nil {
-			res["err"] = err.Error()
+			err_str := err.Error()
+			err_str = strings.ReplaceAll(err_str, "\n", "\r\n")
+			res["err"] = err_str
 		}
-
 		c.JSON(200, res)
 	})
 
 	r.GET("/:ledger/accounts", func(c *gin.Context) {
 		l, _ := c.Get("ledger")
-
 		cursor, err := l.(*ledger.Ledger).FindAccounts(
 			query.After(c.Query("after")),
 		)
-
 		res := gin.H{
 			"ok":     err == nil,
 			"cursor": cursor,
 		}
-
 		if err != nil {
 			res["err"] = err.Error()
 		}
-
 		c.JSON(200, res)
 	})
 
 	r.GET("/:ledger/accounts/:address", func(c *gin.Context) {
 		l, _ := c.Get("ledger")
-
 		acc, err := l.(*ledger.Ledger).GetAccount(c.Param("address"))
-
 		res := gin.H{
 			"ok":      err == nil,
 			"account": acc,
 		}
-
 		if err != nil {
 			res["err"] = err.Error()
 		}
-
 		c.JSON(200, res)
 	})
 
@@ -168,7 +144,6 @@ func NewHttpAPI(lc fx.Lifecycle, resolver *ledger.Resolver) *HttpAPI {
 	lc.Append(fx.Hook{
 		OnStart: func(c context.Context) error {
 			go h.Start()
-
 			return nil
 		},
 	})

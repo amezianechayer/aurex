@@ -23,7 +23,8 @@ func Init() {
 	viper.SetDefault("storage.sqlite.db_name", "corren")
 	viper.SetDefault("storage.postgres.conn_string", "postgresql://localhost/postgres")
 	viper.SetDefault("server.http.bind_address", "localhost:3068")
-	viper.SetDefault("ledgers", []string{"quickstart"})
+	viper.SetDefault("ui.http.bind_address", "localhost:3078")
+	viper.SetDefault("ledgers", []interface{}{"quickstart"})
 
 	viper.SetConfigName("corren")
 	viper.SetConfigType("yaml")

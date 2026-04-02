@@ -3,20 +3,20 @@ package cmd
 import (
 	"embed"
 	"fmt"
-	"log"
 	"net/http"
 	"os/exec"
 	"regexp"
 	"runtime"
 
+	"github.com/amezianechayer/corren/config"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 //go:embed horizon
-
 var uipath embed.FS
 
-func openuri(uri string) {
+func openuri(uri string) bool {
 	var err error
 
 	switch runtime.GOOS {
@@ -30,15 +30,15 @@ func openuri(uri string) {
 		err = fmt.Errorf("unsupported platform, open manually: %s", uri)
 	}
 
-	if err != nil {
-		log.Fatal(err)
-	}
+	return err != nil
 }
 
 var UICmd = &cobra.Command{
 	Use: "ui",
 	Run: func(cmd *cobra.Command, args []string) {
-		addr := "localhost:3078"
+		config.Init()
+
+		addr := viper.GetString("ui.http.bind_address")
 
 		handler := http.FileServer(http.FS(uipath))
 
@@ -54,7 +54,7 @@ var UICmd = &cobra.Command{
 		})
 
 		openuri(addr)
-		fmt.Printf("Aurex horizon is live on http://%s\n", addr)
+		fmt.Printf("Corren horizon is live on http://%s\n", addr)
 
 		http.ListenAndServe(addr, nil)
 	},

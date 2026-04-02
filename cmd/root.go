@@ -10,6 +10,7 @@ import (
 	"os"
 	"regexp"
 
+	"github.com/amezianechayer/corren-vm/script/compiler"
 	"github.com/amezianechayer/corren/api"
 	"github.com/amezianechayer/corren/config"
 	"github.com/amezianechayer/corren/ledger"
@@ -47,17 +48,14 @@ func Execute() {
 				fx.Invoke(func(lc fx.Lifecycle, h *api.HttpAPI) {
 				}),
 			)
-
 			app.Run()
 		},
 	}
-
 	server.AddCommand(start)
 
 	conf := &cobra.Command{
 		Use: "config",
 	}
-
 	conf.AddCommand(&cobra.Command{
 		Use: "init",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -72,49 +70,39 @@ func Execute() {
 	store := &cobra.Command{
 		Use: "storage",
 	}
-
 	store.AddCommand(&cobra.Command{
 		Use: "init",
 		Run: func(cmd *cobra.Command, args []string) {
 			config.Init()
 			s, err := storage.GetStore("default")
-
 			if err != nil {
 				log.Fatal(err)
 			}
-
 			err = s.Initialize()
-
 			if err != nil {
 				log.Fatal(err)
 			}
 		},
 	})
 
-	script := &cobra.Command{
-		Use:  "exec [ledger] [script]",
+	script_run := &cobra.Command{
+		Use:  "run [ledger] [script]",
 		Args: cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			config.Init()
-
 			b, err := ioutil.ReadFile(args[1])
-
 			if err != nil {
 				log.Fatal(err)
 			}
-
 			r := regexp.MustCompile(`^\n`)
 			s := string(b)
 			s = r.ReplaceAllString(s, "")
-
 			b, err = json.Marshal(gin.H{
 				"plain": string(s),
 			})
-
 			if err != nil {
 				log.Fatal(err)
 			}
-
 			res, err := http.Post(
 				fmt.Sprintf(
 					"http://%s/%s/script",
@@ -124,18 +112,43 @@ func Execute() {
 				"application/json",
 				bytes.NewReader([]byte(b)),
 			)
-
 			if err != nil {
 				log.Fatal(err)
 			}
-
 			b, err = ioutil.ReadAll(res.Body)
-
 			if err != nil {
 				log.Fatal(err)
 			}
+			var result struct {
+				Err string `json:"err,omitempty"`
+				Ok  bool   `json:"ok"`
+			}
+			err = json.Unmarshal(b, &result)
+			if err != nil {
+				log.Fatal(err)
+			}
+			if result.Ok {
+				fmt.Println("Script run successfully ✅")
+			} else {
+				log.Fatal(result.Err)
+			}
+		},
+	}
 
-			fmt.Println(res.StatusCode, string(b))
+	script_check := &cobra.Command{
+		Use:  "check [script]",
+		Args: cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			b, err := ioutil.ReadFile(args[0])
+			if err != nil {
+				log.Fatal(err)
+			}
+			_, err = compiler.Compile(string(b))
+			if err != nil {
+				log.Fatal(err)
+			} else {
+				fmt.Println("Script is valid ✅")
+			}
 		},
 	}
 
@@ -143,7 +156,8 @@ func Execute() {
 	root.AddCommand(conf)
 	root.AddCommand(UICmd)
 	root.AddCommand(store)
-	root.AddCommand(script)
+	root.AddCommand(script_run)
+	root.AddCommand(script_check)
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
