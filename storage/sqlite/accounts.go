@@ -7,6 +7,7 @@ import (
 	"github.com/amezianechayer/corren/core"
 	"github.com/amezianechayer/corren/ledger/query"
 	"github.com/huandu/go-sqlbuilder"
+	"github.com/spf13/viper"
 )
 
 func (s *SQLiteStore) FindAccounts(q query.Query) (query.Cursor, error) {
@@ -28,7 +29,9 @@ func (s *SQLiteStore) FindAccounts(q query.Query) (query.Cursor, error) {
 	}
 
 	sqlq, args := sb.BuildWithFlavor(sqlbuilder.SQLite)
-	fmt.Println(sqlq, args)
+	if viper.GetBool("debug") {
+		fmt.Println(sqlq, args)
+	}
 
 	rows, err := s.db.Query(
 		sqlq,
@@ -48,10 +51,18 @@ func (s *SQLiteStore) FindAccounts(q query.Query) (query.Cursor, error) {
 			return c, err
 		}
 
-		results = append(results, core.Account{
+		account := core.Account{
 			Address:  address,
 			Contract: "default",
-		})
+		}
+
+		meta, err := s.GetMeta("account", account.Address)
+		if err != nil {
+			return c, err
+		}
+		account.Metadata = meta
+
+		results = append(results, account)
 	}
 
 	c.PageSize = q.Limit - 1
