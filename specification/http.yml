@@ -1,7 +1,7 @@
 openapi: 3.0.0
 
 info:
-  title: Aurex Ledger API
+  title: Corren Ledger API
   version: 1.0.0-alpha
 
 servers:
@@ -116,6 +116,11 @@ paths:
           in: path
           schema:
             type: string
+        - required: true
+          name: reference
+          in: path
+          schema:
+            $ref: "#/components/schemas/reference"
       requestBody:
         required: true
         content:
@@ -172,6 +177,11 @@ paths:
           in: path
           schema:
             type: string
+        - required: true
+          name: reference
+          in: path
+          schema:
+            $ref: "#/components/schemas/reference"
       requestBody:
         required: true
         content:
