@@ -2,11 +2,13 @@ package ledger
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sync"
 	"time"
 
+	"github.com/amezianechayer/corren/config"
 	"github.com/amezianechayer/corren/core"
 	"github.com/amezianechayer/corren/ledger/query"
 	"github.com/amezianechayer/corren/storage"
@@ -60,6 +62,8 @@ func (l *Ledger) Close() {
 }
 
 func (l *Ledger) Commit(ts []core.Transaction) error {
+	defer config.Remember(l.name)
+
 	l.Lock()
 	defer l.Unlock()
 
@@ -80,6 +84,11 @@ func (l *Ledger) Commit(ts []core.Transaction) error {
 	last := l._last
 
 	for i := range ts {
+
+		if len(ts[i].Postings) == 0 {
+			return errors.New("transaction has no postings")
+		}
+
 		ts[i].ID = count + int64(i)
 		ts[i].Timestamp = timestamp
 
@@ -102,7 +111,7 @@ func (l *Ledger) Commit(ts []core.Transaction) error {
 	}
 
 	for addr := range rf {
-		if addr == "@world" {
+		if addr == "world" {
 			continue
 		}
 
