@@ -23,7 +23,7 @@ jobs:
       - run: tar -zxvf horizon-${{ steps.horizon_release.outputs.release }}.tar.gz
       - run: rm -rf horizon-${{ steps.horizon_release.outputs.release }}.tar.gz
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: horizon-dist
           path: ./**
@@ -43,13 +43,13 @@ jobs:
             file: default
 
     steps:
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v4
         with:
           go-version: '1.16'
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
-      - uses: actions/cache@v2
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build
@@ -70,7 +70,7 @@ jobs:
           GONOSUMDB: github.com/amezianechayer/*
 
       - name: Fetch Horizon dist
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: horizon-dist
           path: cmd/horizon/
