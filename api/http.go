@@ -83,10 +83,10 @@ func NewHttpAPI(lc fx.Lifecycle, resolver *ledger.Resolver) *HttpAPI {
 
 	r.GET("/:ledger/transactions", func(c *gin.Context) {
 		l, _ := c.Get("ledger")
-
+		ref := c.Query("reference")
 		cursor, err := l.(*ledger.Ledger).FindTransactions(
 			query.After(c.Query("after")),
-			query.Account(c.Query("account")),
+			query.Reference(ref),
 		)
 
 		c.JSON(200, gin.H{
@@ -103,6 +103,22 @@ func NewHttpAPI(lc fx.Lifecycle, resolver *ledger.Resolver) *HttpAPI {
 		c.ShouldBind(&t)
 
 		err := l.(*ledger.Ledger).Commit([]core.Transaction{t})
+
+		res := gin.H{
+			"ok": err == nil,
+		}
+
+		if err != nil {
+			res["err"] = err.Error()
+		}
+
+		c.JSON(200, res)
+	})
+	r.POST("/:ledger/transactions/:id/revert", func(c *gin.Context) {
+		l, _ := c.Get("ledger")
+
+		id := c.Param("id")
+		err := l.(*ledger.Ledger).RevertTransaction(id)
 
 		res := gin.H{
 			"ok": err == nil,

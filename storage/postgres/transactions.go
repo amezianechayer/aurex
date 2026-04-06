@@ -9,6 +9,7 @@ import (
 	"github.com/amezianechayer/corren/core"
 	"github.com/amezianechayer/corren/ledger/query"
 	"github.com/huandu/go-sqlbuilder"
+	"github.com/spf13/viper"
 )
 
 func (s *PGStore) SaveTransactions(ts []core.Transaction) error {
@@ -142,6 +143,11 @@ func (s *PGStore) FindTransactions(q query.Query) (query.Cursor, error) {
 			in.Equal("destination", q.Params["account"]),
 		))
 	}
+	if q.HasParam("reference") {
+		in.Where(
+			in.Equal("reference", q.Params["reference"]),
+		)
+	}
 
 	sb := sqlbuilder.NewSelectBuilder()
 	sb.Select(
@@ -225,4 +231,82 @@ func (s *PGStore) FindTransactions(q query.Query) (query.Cursor, error) {
 	c.Data = results
 
 	return c, nil
+}
+
+func (s *PGStore) GetTransaction(id string) (core.Transaction, error) {
+	sb := sqlbuilder.NewSelectBuilder()
+	sb.Select(
+		"t.id",
+		"t.timestamp",
+		"t.hash",
+		"t.reference",
+		"p.source",
+		"p.destination",
+		"p.amount",
+		"p.asset",
+	)
+	sb.From(sb.As("transactions", "t"))
+	sb.Where(sb.Equal("t.id", id))
+	sb.JoinWithOption(sqlbuilder.LeftJoin, sb.As("postings", "p"), "p.txid = t.id")
+	sb.OrderBy("p.id asc")
+
+	sqlq, args := sb.BuildWithFlavor(sqlbuilder.PostgreSQL)
+	if viper.GetBool("debug") {
+		fmt.Println(sqlq, args)
+	}
+
+	tx := core.Transaction{}
+
+	rows, err := s.Conn().Query(
+		context.TODO(),
+		sqlq,
+		args...,
+	)
+
+	if err != nil {
+		return tx, err
+	}
+
+	txFieldsSet := false
+
+	for rows.Next() {
+		var txid int64
+		var ts string
+		var thash string
+		var tref string
+
+		posting := core.Posting{}
+
+		rows.Scan(
+			&txid,
+			&ts,
+			&thash,
+			&tref,
+			&posting.Source,
+			&posting.Destination,
+			&posting.Amount,
+			&posting.Asset,
+		)
+
+		if !txFieldsSet {
+			tx.ID = txid
+			tx.Postings = []core.Posting{}
+			tx.Timestamp = ts
+			tx.Hash = thash
+			tx.Reference = tref
+			tx.Metadata = core.Metadata{}
+
+			txFieldsSet = true
+		}
+
+		tx.AppendPosting(posting)
+	}
+
+	meta, err := s.GetMeta("transaction", fmt.Sprintf("%d", tx.ID))
+	if err != nil {
+		return tx, err
+	}
+	tx.Metadata = meta
+
+	return tx, nil
 }
