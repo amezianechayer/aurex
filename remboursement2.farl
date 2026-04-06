@@ -1,0 +1,14 @@
+transfer [DZD.2 50000] (
+  from @world
+  to   @client:kenza
+)
+
+transfer [DZD.2 50000] (
+  from @client:kenza
+  to   @commande:2203:paiement
+)
+
+transfer [DZD.2 30000] (
+  from @commande:2201:paiement
+  to   @client:kenza
+)

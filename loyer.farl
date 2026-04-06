@@ -1,0 +1,38 @@
+transfer [DZD.2 25000] (
+  from @world
+  to   @locataire:nadia
+)
+
+transfer [DZD.2 18000] (
+  from @world
+  to   @locataire:omar
+)
+
+transfer [DZD.2 22000] (
+  from @world
+  to   @locataire:zineb
+)
+
+transfer [DZD.2 25000] (
+  from @locataire:nadia
+  to   @immeuble:residence:loyers
+)
+
+transfer [DZD.2 18000] (
+  from @locataire:omar
+  to   @immeuble:residence:loyers
+)
+
+transfer [DZD.2 22000] (
+  from @locataire:zineb
+  to   @immeuble:residence:loyers
+)
+
+transfer [DZD.2 65000] (
+  from @immeuble:residence:loyers
+  to   {
+    70/100 to @proprietaire:hocine
+    20/100 to @syndic:entretien
+    10/100 to @reserve:travaux
+  }
+)

@@ -1,0 +1,13 @@
+transfer [DZD.2 12000] (
+  from @world
+  to   @abonne:djamel
+)
+
+transfer [DZD.2 12000] (
+  from @abonne:djamel
+  to   {
+    81/100 to @plateforme:revenus
+    9/100  to @plateforme:tva
+    10/100 to @partenaire:reseller
+  }
+)

@@ -1,0 +1,18 @@
+transfer [DZD.2 3200] (
+  from @world
+  to   @client:nassim
+)
+
+transfer [DZD.2 3200] (
+  from @client:nassim
+  to   @commande:1042:paiement
+)
+
+transfer [DZD.2 3200] (
+  from @commande:1042:paiement
+  to   {
+    85/100 to @restaurant:eldjazair
+    10/100 to @plateforme:commission
+    5/100  to @serveur:riad
+  }
+)

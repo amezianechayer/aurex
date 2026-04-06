@@ -1,0 +1,31 @@
+transfer [DZD.2 30000] (
+  from @world
+  to   @acheteur:mehdi
+)
+
+transfer [DZD.2 10000] (
+  from @acheteur:mehdi
+  to   @produit:laptop:versement:1
+)
+
+transfer [DZD.2 10000] (
+  from @acheteur:mehdi
+  to   @produit:laptop:versement:2
+)
+
+transfer [DZD.2 10000] (
+  from @acheteur:mehdi
+  to   @produit:laptop:versement:3
+)
+
+transfer [DZD.2 30000] (
+  from {
+    @produit:laptop:versement:1
+    @produit:laptop:versement:2
+    @produit:laptop:versement:3
+  }
+  to   {
+    95/100 to @vendeur:anis
+    5/100  to @plateforme:frais
+  }
+)

@@ -1,0 +1,12 @@
+transfer [DZD.2 1000] (
+  from @world
+  to   @wallet:lyes
+)
+
+transfer [DZD.2 2500] (
+  from {
+    @wallet:lyes
+    @world
+  }
+  to @facture:0312
+)

@@ -1,0 +1,17 @@
+transfer [DZD.2 15000] (
+  from @world
+  to   @acheteur:sofiane
+)
+
+transfer [DZD.2 15000] (
+  from @acheteur:sofiane
+  to   @produit:0089:escrow
+)
+
+transfer [DZD.2 15000] (
+  from @produit:0089:escrow
+  to   {
+    92/100 to @vendeur:hamza
+    8/100  to @plateforme:frais
+  }
+)
