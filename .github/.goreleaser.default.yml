@@ -1,0 +1,145 @@
+project_name: corren
+
+env:
+  - GO111MODULE=on
+  - GOPROXY=https://proxy.golang.org
+  - GOPRIVATE=github.com/amezianechayer/*
+
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - binary: corren
+    id: corren_linux
+    ldflags:
+      - -X github.com/amezianechayer/corren/cmd.BuildDate={{ .Date }}
+      - -X github.com/amezianechayer/corren/cmd.Version={{ .Version }}
+      - -X github.com/amezianechayer/corren/cmd.Commit={{ .ShortCommit }}
+      - -extldflags "-static"
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - linux
+    goarch:
+      - amd64
+
+  - binary: corren
+    id: corren_darwin
+    ldflags:
+      - -X github.com/amezianechayer/corren/cmd.BuildDate={{ .Date }}
+      - -X github.com/amezianechayer/corren/cmd.Version={{ .Version }}
+      - -X github.com/amezianechayer/corren/cmd.Commit={{ .ShortCommit }}
+      - -s
+    env:
+      - CGO_ENABLED=1
+      - CC=/home/runner/work/osxcross/target/bin/o64-clang
+      - CXX=/home/runner/work/osxcross/target/bin/o64-clang++
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: "corren"
+    builds:
+      - corren_linux
+      - corren_darwin
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    name_template: "{{.ProjectName}}_{{.Version}}_{{.Os}}-{{.Arch}}"
+    replacements:
+      amd64: 64bit
+      386: 32bit
+      arm: ARM
+      arm64: ARM64
+      darwin: macOS
+      linux: Linux
+      windows: Windows
+
+checksum:
+  name_template: 'checksums_linux.txt'
+
+snapshot:
+  name_template: "{{ .Tag }}"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^spec:'
+
+dockers:
+  - image_templates: ["ghcr.io/amezianechayer/corren:{{ .Version }}-amd64"]
+    dockerfile: Dockerfile
+    use: buildx
+    build_flag_templates:
+      - --platform=linux/amd64
+      - --label=org.opencontainers.image.title={{ .ProjectName }}
+      - --label=org.opencontainers.image.description={{ .ProjectName }}
+      - --label=org.opencontainers.image.url=https://github.com/amezianechayer/corren
+      - --label=org.opencontainers.image.source=https://github.com/amezianechayer/corren
+      - --label=org.opencontainers.image.version={{ .Version }}
+      - --label=org.opencontainers.image.created={{ time "2006-01-02T15:04:05Z07:00" }}
+      - --label=org.opencontainers.image.revision={{ .FullCommit }}
+
+  - image_templates: ["ghcr.io/amezianechayer/corren:{{ .Version }}-arm64"]
+    dockerfile: Dockerfile
+    use: buildx
+    build_flag_templates:
+      - --platform=linux/arm64
+      - --label=org.opencontainers.image.title={{ .ProjectName }}
+      - --label=org.opencontainers.image.description={{ .ProjectName }}
+      - --label=org.opencontainers.image.url=https://github.com/amezianechayer/corren
+      - --label=org.opencontainers.image.source=https://github.com/amezianechayer/corren
+      - --label=org.opencontainers.image.version={{ .Version }}
+      - --label=org.opencontainers.image.created={{ time "2006-01-02T15:04:05Z07:00" }}
+      - --label=org.opencontainers.image.revision={{ .FullCommit }}
+
+docker_manifests:
+  - name_template: ghcr.io/amezianechayer/corren:{{ .Version }}
+    image_templates:
+      - ghcr.io/amezianechayer/corren:{{ .Version }}-amd64
+      - ghcr.io/amezianechayer/corren:{{ .Version }}-arm64
+
+  - name_template: ghcr.io/amezianechayer/corren:latest
+    image_templates:
+      - ghcr.io/amezianechayer/corren:{{ .Version }}-amd64
+      - ghcr.io/amezianechayer/corren:{{ .Version }}-arm64
+
+brews:
+  - tap:
+      owner: amezianechayer
+      name: homebrew-tap
+    name: corren
+    folder: Formula
+    homepage: https://corren.io
+    skip_upload: false
+    test: |
+      system "#{bin}/corren --help"
+    install: |
+      bin.install "corren"
+
+nfpms:
+  - id: packages
+    package_name: corren
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds:
+      - corren_linux
+    homepage: https://corren.io
+    maintainer: Ameziane Chayer <ameziane.chayer@corren.io>
+    formats:
+      - deb
+      - rpm
+
+publishers:
+  - name: fury.io
+    ids:
+      - packages
+    dir: "{{ dir .ArtifactPath }}"
+    cmd: curl -F package=@{{ .ArtifactName }} https://{{ .Env.FURY_TOKEN }}@push.fury.io/amezianechayer/

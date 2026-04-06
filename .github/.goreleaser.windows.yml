@@ -1,0 +1,27 @@
+builds:
+  - goos:
+      - windows
+    goarch:
+      - amd64
+    binary: corren
+    env:
+      - CGO_ENABLED=1
+      - GOPRIVATE=github.com/amezianechayer/*
+    ldflags:
+      - -X github.com/amezianechayer/corren/cmd.BuildDate={{ .Date }}
+      - -X github.com/amezianechayer/corren/cmd.Version={{ .Version }}
+      - -X github.com/amezianechayer/corren/cmd.Commit={{ .ShortCommit }}
+
+checksum:
+  name_template: 'checksums_windows.txt'
+
+snapshot:
+  name_template: "{{ .Tag }}"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^spec:'
