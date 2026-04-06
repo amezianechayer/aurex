@@ -1,0 +1,17 @@
+transfer [DZD.2 5000] (
+  from @world
+  to   @client:ameziane
+)
+
+transfer [DZD.2 5000] (
+  from @client:ameziane
+  to   @courses:0587:paiement
+)
+
+transfer [DZD.2 5000] (
+  from @courses:0587:paiement
+  to   {
+    90/100 to @chauffeur:yanis
+    10/100 to @plateforme:frais
+  }
+)

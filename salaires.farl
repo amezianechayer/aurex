@@ -1,0 +1,13 @@
+transfer [DZD.2 450000] (
+  from @world
+  to   @entreprise:techco:tresorerie
+)
+
+transfer [DZD.2 450000] (
+  from @entreprise:techco:tresorerie
+  to   {
+    40/100 to @employe:meriem
+    35/100 to @employe:bilal
+    25/100 to @employe:sabrina
+  }
+)

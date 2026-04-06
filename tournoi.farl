@@ -1,0 +1,51 @@
+transfer [DZD.2 1000] (
+  from @world
+  to   @joueur:amine
+)
+transfer [DZD.2 1000] (
+  from @world
+  to   @joueur:sonia
+)
+transfer [DZD.2 1000] (
+  from @world
+  to   @joueur:kamel
+)
+transfer [DZD.2 1000] (
+  from @world
+  to   @joueur:rima
+)
+transfer [DZD.2 1000] (
+  from @world
+  to   @joueur:fouad
+)
+
+transfer [DZD.2 1000] (
+  from @joueur:amine
+  to   @tournoi:pool
+)
+transfer [DZD.2 1000] (
+  from @joueur:sonia
+  to   @tournoi:pool
+)
+transfer [DZD.2 1000] (
+  from @joueur:kamel
+  to   @tournoi:pool
+)
+transfer [DZD.2 1000] (
+  from @joueur:rima
+  to   @tournoi:pool
+)
+transfer [DZD.2 1000] (
+  from @joueur:fouad
+  to   @tournoi:pool
+)
+
+transfer [DZD.2 5000] (
+  from @tournoi:pool
+  to   {
+    60/100 to @joueur:amine
+    25/100 to @joueur:sonia
+    10/100 to @plateforme:frais
+    5/100  to @tournoi:reserve
+  }
+)

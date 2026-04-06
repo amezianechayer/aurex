@@ -1,0 +1,25 @@
+transfer [DZD.2 50000] (
+  from @world
+  to   @client:rachid
+)
+
+# Rachid paie 30% d'acompte au freelance Tarek pour démarrer
+transfer [DZD.2 15000] (
+  from @client:rachid
+  to   @freelance:tarek:acompte
+)
+
+# Tarek commence le travail, l'acompte est libéré
+transfer [DZD.2 15000] (
+  from @freelance:tarek:acompte
+  to   @freelance:tarek:revenus
+)
+
+# Rachid paie le solde des 70% restants à la livraison
+transfer [DZD.2 35000] (
+  from @client:rachid
+  to   {
+    94/100 to @freelance:tarek:revenus
+    6/100  to @plateforme:commission
+  }
+)

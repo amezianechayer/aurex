@@ -1,0 +1,14 @@
+transfer [DZD.2 8000] (
+  from @world
+  to   @client:karima
+)
+
+transfer [DZD.2 5000] (
+  from @client:karima
+  to   @commande:2201:paiement
+)
+
+transfer [DZD.2 2000] (
+  from @commande:2201:paiement
+  to   @client:karima
+)

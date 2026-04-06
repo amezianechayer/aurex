@@ -1,0 +1,14 @@
+transfer [EUR.2 50000] (
+  from @world
+  to   @client:kenza
+)
+
+transfer [EUR.2 50000] (
+  from @client:kenza
+  to   @commande:2205:paiement
+)
+
+transfer [EUR.2 30000] (
+  from @commande:2201:paiement
+  to   @client:kenza
+)
