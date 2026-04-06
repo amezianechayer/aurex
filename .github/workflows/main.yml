@@ -79,7 +79,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v2
         with:
           version: latest
-          args: build --parallelism 4 --clean --skip-validate --snapshot --config .github/.goreleaser.${{matrix.file}}.yml
+          args: build --parallelism 4 --clean --skip=validate --snapshot --config .github/.goreleaser.${{matrix.file}}.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
           GOPRIVATE: github.com/amezianechayer/*
