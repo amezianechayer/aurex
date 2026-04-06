@@ -32,9 +32,7 @@ builds:
       - -X github.com/amezianechayer/corren/cmd.Commit={{ .ShortCommit }}
       - -s
     env:
-      - CGO_ENABLED=1
-      - CC=/home/runner/work/osxcross/target/bin/o64-clang
-      - CXX=/home/runner/work/osxcross/target/bin/o64-clang++
+      - CGO_ENABLED=0
     goos:
       - darwin
     goarch:
