@@ -47,7 +47,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v4
         with:
-          go-version: '1.18'
+          go-version: '1.16'
 
       - uses: actions/checkout@v4
 
@@ -85,18 +85,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GH_PAT }}
 
-      - name: OSXCross for CGO Support
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          mkdir ../../osxcross
-          git clone https://github.com/plentico/osxcross-target.git ../../osxcross/target
-
-      - name: Downgrade libssl
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          echo 'deb http://security.ubuntu.com/ubuntu bionic-security main' | sudo tee -a /etc/apt/sources.list
-          sudo apt update && apt-cache policy libssl1.0-dev
-          sudo apt-get install libssl1.0-dev
+      - name: get deps
+        run: go get
+        env:
+          CGO_ENABLED: 1
+          GOPRIVATE: github.com/amezianechayer/*
+          GONOSUMCHECK: github.com/amezianechayer/*
+          GONOSUMDB: github.com/amezianechayer/*
 
       - name: Run GoReleaser
         env:
