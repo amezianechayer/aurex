@@ -33,6 +33,11 @@ func (s *SQLiteStore) FindTransactions(q query.Query) (query.Cursor, error) {
 			in.Equal("destination", q.Params["account"]),
 		))
 	}
+	if q.HasParam("reference") {
+		in.Where(
+			in.Equal("reference", q.Params["reference"]),
+		)
+	}
 
 	sb := sqlbuilder.NewSelectBuilder()
 	sb.Select(
