@@ -103,4 +103,4 @@ jobs:
         uses: goreleaser/goreleaser-action@v2
         with:
           version: latest
-          args: release --parallelism 4 --clean --skip-validate --config .github/.goreleaser.${{matrix.file}}.yml
+          args: release --parallelism 4 --clean --skip=validate --config .github/.goreleaser.${{matrix.file}}.yml
