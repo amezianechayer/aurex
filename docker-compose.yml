@@ -1,6 +1,8 @@
 version: '3.8'
+
 volumes:
   postgres:
+
 services:
   postgres:
     image: "postgres:13-alpine"
@@ -17,8 +19,8 @@ services:
     volumes:
       - postgres:/data/postgres
 
-  ledger:
-    image: "ghcr.io/corren/ledger:latest"
+  corren:
+    image: "ghcr.io/amezianechayer/corren:latest"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:3068/_info"]
       interval: 10s
@@ -34,13 +36,13 @@ services:
       CORREN_STORAGE_POSTGRES_CONN_STRING: "postgresql://ledger:ledger@postgres/ledger"
       CORREN_SERVER_HTTP_BIND_ADDRESS: "0.0.0.0:3068"
 
-  control:
-    image: "ghcr.io/corren/ledger:latest"
+  horizon:
+    image: "ghcr.io/amezianechayer/corren:latest"
     command: corren ui
     depends_on:
-      ledger:
+      corren:
         condition: service_healthy
     ports:
       - "3078:3078"
     environment:
-      CORREN: "0.0.0.0:3078"
+      CORREN_UI_HTTP_BIND_ADDRESS: "0.0.0.0:3078"

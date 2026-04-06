@@ -165,6 +165,19 @@ func (l *Ledger) FindTransactions(m ...query.QueryModifier) (query.Cursor, error
 	c, err := l.store.FindTransactions(q)
 	return c, err
 }
+func (l *Ledger) GetTransaction(id string) (core.Transaction, error) {
+	tx, err := l.store.GetTransaction(id)
+	if err != nil {
+		return tx, err
+	}
+
+	meta, err := l.store.GetMeta("transaction", id)
+	if err != nil {
+		return tx, err
+	}
+	tx.Metadata = meta
+	return tx, nil
+}
 
 func (l *Ledger) FindAccounts(m ...query.QueryModifier) (query.Cursor, error) {
 	q := query.New(m)
