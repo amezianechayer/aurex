@@ -15,7 +15,7 @@ jobs:
         uses: rez0n/actions-github-release@main
         id: horizon_release
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PAT }}
           repository: "amezianechayer/horizon"
           type: "stable"
 
@@ -23,7 +23,7 @@ jobs:
       - run: tar -zxvf horizon-${{ steps.horizon_release.outputs.release }}.tar.gz
       - run: rm -rf horizon-${{ steps.horizon_release.outputs.release }}.tar.gz
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v2
         with:
           name: horizon-dist
           path: ./**
@@ -43,13 +43,13 @@ jobs:
             file: default
 
     steps:
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v2
         with:
           go-version: '1.16'
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v2
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v2
         with:
           path: |
             ~/.cache/go-build
@@ -59,7 +59,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Configure Git for private modules
-        run: git config --global url."https://${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+        run: git config --global url."https://${{ secrets.GH_PAT }}@github.com/".insteadOf "https://github.com/"
 
       - name: get deps
         run: go get
@@ -67,9 +67,10 @@ jobs:
           CGO_ENABLED: 1
           GOPRIVATE: github.com/amezianechayer/*
           GONOSUMCHECK: github.com/amezianechayer/*
+          GONOSUMDB: github.com/amezianechayer/*
 
       - name: Fetch Horizon dist
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v2
         with:
           name: horizon-dist
           path: cmd/horizon/
@@ -88,10 +89,12 @@ jobs:
           sudo apt-get install libssl1.0-dev
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v2
         with:
           version: latest
           args: build --parallelism 4 --rm-dist --skip-validate --snapshot --config .github/.goreleaser.${{matrix.file}}.yml
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
           GOPRIVATE: github.com/amezianechayer/*
+          GONOSUMCHECK: github.com/amezianechayer/*
+          GONOSUMDB: github.com/amezianechayer/*

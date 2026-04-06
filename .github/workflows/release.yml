@@ -17,7 +17,7 @@ jobs:
         uses: rez0n/actions-github-release@main
         id: horizon_release
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PAT }}
           repository: "amezianechayer/horizon"
           type: "stable"
 
@@ -25,7 +25,7 @@ jobs:
       - run: tar -zxvf horizon-${{ steps.horizon_release.outputs.release }}.tar.gz
       - run: rm -rf horizon-${{ steps.horizon_release.outputs.release }}.tar.gz
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v2
         with:
           name: horizon-dist
           path: ./**
@@ -45,13 +45,13 @@ jobs:
             file: default
 
     steps:
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v2
         with:
           go-version: '1.16'
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v2
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v2
         with:
           path: |
             ~/.cache/go-build
@@ -61,29 +61,29 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Configure Git for private modules
-        run: git config --global url."https://${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+        run: git config --global url."https://${{ secrets.GH_PAT }}@github.com/".insteadOf "https://github.com/"
 
       - name: Fetch Horizon dist
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v2
         with:
           name: horizon-dist
           path: cmd/horizon/
 
       - name: Set up QEMU
         if: matrix.os == 'ubuntu-latest'
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v1
 
       - name: Set up Docker Buildx
         if: matrix.os == 'ubuntu-latest'
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v1
 
       - name: Login to GitHub Container Registry
         if: matrix.os == 'ubuntu-latest'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v1
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GH_PAT }}
 
       - name: OSXCross for CGO Support
         if: matrix.os == 'ubuntu-latest'
@@ -100,10 +100,12 @@ jobs:
 
       - name: Run GoReleaser
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
           FURY_TOKEN: ${{ secrets.FURY_TOKEN }}
           GOPRIVATE: github.com/amezianechayer/*
-        uses: goreleaser/goreleaser-action@v5
+          GONOSUMCHECK: github.com/amezianechayer/*
+          GONOSUMDB: github.com/amezianechayer/*
+        uses: goreleaser/goreleaser-action@v2
         with:
           version: latest
           args: release --parallelism 4 --rm-dist --skip-validate --config .github/.goreleaser.${{matrix.file}}.yml
