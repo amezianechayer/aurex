@@ -6,3 +6,4 @@
 cmd/horizon*
 !cmd/horizon/.gitkeep
 .DS_Store
+aurex
