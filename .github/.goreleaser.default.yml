@@ -46,19 +46,13 @@ archives:
     builds:
       - corren_linux
       - corren_darwin
-    format: tar.gz
+    formats:
+      - tar.gz
     format_overrides:
       - goos: windows
-        format: zip
+        formats:
+          - zip
     name_template: "{{.ProjectName}}_{{.Version}}_{{.Os}}-{{.Arch}}"
-    replacements:
-      amd64: 64bit
-      386: 32bit
-      arm: ARM
-      arm64: ARM64
-      darwin: macOS
-      linux: Linux
-      windows: Windows
 
 checksum:
   name_template: 'checksums_linux.txt'
@@ -113,11 +107,11 @@ docker_manifests:
       - ghcr.io/amezianechayer/corren:{{ .Version }}-arm64
 
 brews:
-  - tap:
+  - repository:
       owner: amezianechayer
       name: homebrew-tap
     name: corren
-    folder: Formula
+    directory: Formula
     homepage: https://corren.io
     skip_upload: false
     test: |
