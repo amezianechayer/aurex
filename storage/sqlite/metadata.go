@@ -3,8 +3,10 @@ package sqlite
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 
 	"github.com/amezianechayer/corren/core"
+	"github.com/amezianechayer/corren/ledger/query"
 	"github.com/huandu/go-sqlbuilder"
 	"github.com/spf13/viper"
 )
@@ -63,36 +65,131 @@ func (s *SQLiteStore) GetMeta(ty string, id string) (core.Metadata, error) {
 	return meta, nil
 }
 
-func (s *SQLiteStore) SaveMeta(ty string, id string, m core.Metadata) error {
+func (s *SQLiteStore) SaveMeta(id, timestamp, targetType, targetID, key, value string) error {
 	tx, _ := s.db.Begin()
 
-	for key, value := range m {
-		ib := sqlbuilder.NewInsertBuilder()
-		ib.InsertInto("metadata")
-		ib.Cols(
-			"meta_target_type",
-			"meta_target_id",
-			"meta_key",
-			"meta_value",
-		)
-		ib.Values(ty, id, key, string(value))
+	ib := sqlbuilder.NewInsertBuilder()
+	ib.InsertInto("metadata")
+	ib.Cols(
+		"meta_id",
+		"meta_target_type",
+		"meta_target_id",
+		"meta_key",
+		"meta_value",
+		"timestamp",
+	)
+	ib.Values(
+		id,
+		targetType,
+		targetID,
+		key,
+		string(value),
+		timestamp,
+	)
 
-		sqlq, args := ib.BuildWithFlavor(sqlbuilder.SQLite)
-
-		_, err := tx.Exec(sqlq, args...)
-
-		if err != nil {
-			tx.Rollback()
-
-			return err
-		}
+	sqlq, args := ib.BuildWithFlavor(sqlbuilder.SQLite)
+	if viper.GetBool("debug") {
+		fmt.Println(sqlq, args)
 	}
 
-	err := tx.Commit()
+	_, err := tx.Exec(sqlq, args...)
+
+	if err != nil {
+		fmt.Println("failed to save metadata", err)
+		tx.Rollback()
+
+		return err
+	}
+
+	err = tx.Commit()
 
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (s *SQLiteStore) FindMeta(q query.Query) (query.Cursor, error) {
+	q.Limit = int(math.Max(-1, math.Min(float64(q.Limit), 100))) + 1
+
+	c := query.Cursor{}
+
+	in := sqlbuilder.NewSelectBuilder()
+	in.Select(
+		"meta_id",
+		"meta_target_type",
+		"meta_target_id",
+		"meta_key",
+		"meta_value",
+	)
+	in.From("metadata")
+	in.OrderBy("meta_id desc")
+	in.Limit(q.Limit)
+
+	sqlq, args := in.BuildWithFlavor(sqlbuilder.SQLite)
+	if viper.GetBool("debug") {
+		fmt.Println(sqlq, args)
+	}
+
+	rows, err := s.db.Query(
+		sqlq,
+		args...,
+	)
+
+	if err != nil {
+		return c, err
+	}
+
+	foundMetadata := map[int64]core.Metadata{}
+
+	for rows.Next() {
+
+		fmt.Println("rows.Next()")
+		md := core.Metadata{}
+
+		var (
+			metaID     int64
+			targetType string
+			targetID   string
+			metaKey    string
+			metaValue  string
+		)
+
+		rows.Scan(
+			&metaID,
+			&targetType,
+			&targetID,
+			&metaKey,
+			&metaValue,
+		)
+
+		var value json.RawMessage
+
+		err = json.Unmarshal([]byte(metaValue), &value)
+		if err != nil {
+			return c, err
+		}
+
+		md[metaKey] = value
+		foundMetadata[metaID] = md
+	}
+
+	results := make([]core.Metadata, len(foundMetadata))
+	for id, md := range foundMetadata {
+		results[id] = md
+	}
+
+	c.PageSize = q.Limit - 1
+
+	c.HasMore = len(results) == q.Limit
+	if c.HasMore {
+		results = results[:len(results)-1]
+	}
+	c.Data = results
+
+	total, _ := s.CountMeta()
+	c.Total = int(total)
+
+	return c, nil
 }

@@ -17,9 +17,10 @@ import (
 
 type Ledger struct {
 	sync.Mutex
-	name  string
-	store storage.Store
-	_last *core.Transaction
+	name        string
+	store       storage.Store
+	_last       *core.Transaction
+	_lastMetaID int
 }
 
 func NewLedger(name string, lc fx.Lifecycle) (*Ledger, error) {
@@ -176,16 +177,23 @@ func (l *Ledger) RevertTransaction(id string) error {
 	if err != nil {
 		return err
 	}
+	if l._last == nil {
+		last, err := l.GetLastTransaction()
+
+		if err != nil {
+			return err
+		}
+
+		l._last = &last
+	}
 
 	rt := tx.Reverse()
+	rt.Metadata = core.Metadata{}
+	rt.Metadata.MarkRevertedBy(fmt.Sprint(l._last.ID))
 	err = l.Commit([]core.Transaction{rt})
 	if err != nil {
 		return err
 	}
-
-	m := core.Metadata{}
-	m.MarkRevertedBy(fmt.Sprint(l._last.ID))
-	err = l.SaveMeta("transaction", fmt.Sprint(l._last.ID), m)
 
 	return err
 }
@@ -223,6 +231,37 @@ func (l *Ledger) GetAccount(address string) (core.Account, error) {
 	return account, nil
 }
 
-func (l *Ledger) SaveMeta(ty string, id string, m core.Metadata) error {
-	return l.store.SaveMeta(ty, id, m)
+func (l *Ledger) SaveMeta(targetType string, targetID string, m core.Metadata) error {
+	l.Lock()
+	defer l.Unlock()
+
+	if l._lastMetaID == 0 {
+		count, err := l.store.CountMeta()
+		if err != nil {
+			return err
+		}
+		l._lastMetaID = int(count) - 1
+	}
+
+	timestamp := time.Now().Format(time.RFC3339)
+
+	for key, value := range m {
+		metaRowID := fmt.Sprint(l._lastMetaID + 1)
+
+		err := l.store.SaveMeta(
+			metaRowID,
+			timestamp,
+			targetType,
+			targetID,
+			key,
+			string(value),
+		)
+		if err == nil {
+			l._lastMetaID++
+		} else {
+			return err
+		}
+	}
+	return nil
+
 }
