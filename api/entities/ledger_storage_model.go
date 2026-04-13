@@ -1,0 +1,7 @@
+package entities
+
+// LedgerStorage -
+type LedgerStorage struct {
+	Driver  interface{} `json:"driver"`
+	Ledgers interface{} `json:"ledgers"`
+}

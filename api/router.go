@@ -20,13 +20,13 @@ func Router(cc cors.Config, resolver *ledger.Resolver) *gin.Engine {
 	)
 
 	// API Controllers
-	baseController := actions.CreateBaseController()
+	configController := actions.CreateConfigController()
 	ledgerController := actions.CreateLedgerController()
 	transactionController := actions.CreateTransactionController()
 	accountController := actions.CreateAccountController()
 	scriptController := actions.CreateScriptController()
 	// API Routes
-	router.GET("/_infos", baseController.GetInfos)
+	router.GET("/_infos", configController.GetInfos)
 
 	ledgerGroup := router.Group("/:ledger", middlewares.LedgerMiddleware(resolver))
 	{
