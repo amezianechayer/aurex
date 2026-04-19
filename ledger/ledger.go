@@ -20,7 +20,7 @@ type Ledger struct {
 	name        string
 	store       storage.Store
 	_last       *core.Transaction
-	_lastMetaID int
+	_lastMetaID int64
 }
 
 func NewLedger(name string, lc fx.Lifecycle) (*Ledger, error) {
@@ -191,9 +191,6 @@ func (l *Ledger) RevertTransaction(id string) error {
 	rt.Metadata = core.Metadata{}
 	rt.Metadata.MarkRevertedBy(fmt.Sprint(l._last.ID))
 	err = l.Commit([]core.Transaction{rt})
-	if err != nil {
-		return err
-	}
 
 	return err
 }
@@ -240,9 +237,8 @@ func (l *Ledger) SaveMeta(targetType string, targetID string, m core.Metadata) e
 		if err != nil {
 			return err
 		}
-		l._lastMetaID = int(count) - 1
+		l._lastMetaID = count
 	}
-
 	timestamp := time.Now().Format(time.RFC3339)
 
 	for key, value := range m {
