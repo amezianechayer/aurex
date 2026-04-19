@@ -19,7 +19,8 @@ func CreateConfigService() *ConfigService {
 	return NewConfigService()
 }
 
-func (s *ConfigService) GetConfigs() *entities.Infos {
+// GetConfig -
+func (s *ConfigService) GetConfig() *entities.Infos {
 	return &entities.Infos{
 		Server:  "corren-ledger",
 		Version: viper.Get("version"),
