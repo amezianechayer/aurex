@@ -19,6 +19,26 @@ type Store interface {
 	FindAccounts(query.Query) (query.Cursor, error)
 	Initialize() error
 	Close()
+
+	// Asset registry
+	SaveAsset(core.AssetEntry) error
+	FindAssets() ([]core.AssetEntry, error)
+	FindAsset(string) (*core.AssetEntry, error)
+
+	// Sharia contracts
+	SaveContract(core.ShariaContract) error
+	UpdateContractStatus(id string, status core.ContractStatus) error
+	FindContracts(query.Query) (query.Cursor, error)
+	FindContract(string) (*core.ShariaContract, error)
+
+	// Sharia certificates
+	SaveCertificate(core.ShariaCertificate) error
+	FindCertificates(contractID string) ([]core.ShariaCertificate, error)
+
+	// API keys
+	SaveAPIKey(core.APIKey) error
+	FindAPIKey(keyHash string) (*core.APIKey, error)
+	DeleteAPIKey(keyHash string) error
 }
 
 func GetStore(name string) (Store, error) {

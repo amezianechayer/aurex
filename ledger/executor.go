@@ -7,6 +7,7 @@ import (
 	"github.com/amezianechayer/corren-vm/script/compiler"
 	"github.com/amezianechayer/corren-vm/vm"
 	"github.com/amezianechayer/corren/core"
+	"github.com/spf13/viper"
 )
 
 func (l *Ledger) Execute(script core.Script) error {
@@ -20,6 +21,19 @@ func (l *Ledger) Execute(script core.Script) error {
 	}
 
 	m := vm.NewMachine(p)
+
+	if viper.GetBool("sharia.enabled") {
+		for _, name := range viper.GetStringSlice("sharia.constraints") {
+			switch name {
+			case "NO_RIBA":
+				m.AddConstraint(&vm.NoRibaConstraint{})
+			case "NO_GHARAR":
+				m.AddConstraint(&vm.NoGhararConstraint{})
+			case "ASSET_BACKED":
+				m.AddConstraint(vm.NewAssetBackedConstraint(viper.GetStringSlice("sharia.allowed_assets")))
+			}
+		}
+	}
 
 	err = m.SetVarsFromJSON(script.Vars)
 	if err != nil {
@@ -64,8 +78,18 @@ func (l *Ledger) Execute(script core.Script) error {
 	if err != nil {
 		return fmt.Errorf("script failed: %v", err)
 	}
-	if exit_code == vm.EXIT_FAIL {
-		return errors.New("script exited with error code EXIT_FAIL")
+	switch exit_code {
+	case vm.EXIT_FAIL:
+		return errors.New("script exited with EXIT_FAIL")
+	case vm.EXIT_FAIL_INVALID:
+		return errors.New("script exited with invalid operation")
+	case vm.EXIT_FAIL_INSUFFICIENT_FUNDS:
+		return errors.New("insufficient funds")
+	case vm.EXIT_FAIL_SHARIA_VIOLATION:
+		if m.ShariaError != nil {
+			return fmt.Errorf("sharia compliance failure: %v", m.ShariaError)
+		}
+		return errors.New("script exited with sharia violation")
 	}
 
 	t := core.Transaction{

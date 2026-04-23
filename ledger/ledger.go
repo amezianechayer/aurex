@@ -183,6 +183,55 @@ func (l *Ledger) FindAccounts(m ...query.QueryModifier) (query.Cursor, error) {
 	return c, err
 }
 
+func (l *Ledger) SaveAsset(a core.AssetEntry) error {
+	return l.store.SaveAsset(a)
+}
+
+func (l *Ledger) FindAssets() ([]core.AssetEntry, error) {
+	return l.store.FindAssets()
+}
+
+func (l *Ledger) GetAsset(id string) (*core.AssetEntry, error) {
+	return l.store.FindAsset(id)
+}
+
+func (l *Ledger) SaveContract(c core.ShariaContract) error {
+	return l.store.SaveContract(c)
+}
+
+func (l *Ledger) FindContracts(m ...query.QueryModifier) (query.Cursor, error) {
+	q := query.New(m)
+	return l.store.FindContracts(q)
+}
+
+func (l *Ledger) GetContract(id string) (*core.ShariaContract, error) {
+	return l.store.FindContract(id)
+}
+
+func (l *Ledger) UpdateContractStatus(id string, status core.ContractStatus) error {
+	return l.store.UpdateContractStatus(id, status)
+}
+
+func (l *Ledger) SaveCertificate(cert core.ShariaCertificate) error {
+	return l.store.SaveCertificate(cert)
+}
+
+func (l *Ledger) FindCertificates(contractID string) ([]core.ShariaCertificate, error) {
+	return l.store.FindCertificates(contractID)
+}
+
+func (l *Ledger) SaveAPIKey(k core.APIKey) error {
+	return l.store.SaveAPIKey(k)
+}
+
+func (l *Ledger) FindAPIKey(keyHash string) (*core.APIKey, error) {
+	return l.store.FindAPIKey(keyHash)
+}
+
+func (l *Ledger) DeleteAPIKey(keyHash string) error {
+	return l.store.DeleteAPIKey(keyHash)
+}
+
 func (l *Ledger) GetAccount(address string) (core.Account, error) {
 	account := core.Account{
 		Address:  address,

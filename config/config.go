@@ -24,6 +24,9 @@ func Init() {
 	viper.SetDefault("storage.postgres.conn_string", "postgresql://localhost/postgres")
 	viper.SetDefault("server.http.bind_address", "localhost:3068")
 	viper.SetDefault("ledgers", []string{"quickstart"})
+	viper.SetDefault("sharia.enabled", false)
+	viper.SetDefault("sharia.constraints", []string{})
+	viper.SetDefault("sharia.allowed_assets", []string{"EUR", "USD", "DZD", "GBP", "GOLD", "SILVER"})
 
 	viper.SetConfigName("corren")
 	viper.SetConfigType("yaml")

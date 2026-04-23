@@ -43,7 +43,7 @@ func TestSend(t *testing.T) {
 	with(func(l *Ledger) {
 		defer l.Close()
 		script := core.Script{
-			Plain: "transfer [DZD.2 99] from @world to @user:001",
+			Plain: "transfer [DZD.2 99] (\n  from @world\n  to @user:001\n)",
 		}
 		err := l.Execute(script)
 		if err != nil {
@@ -71,7 +71,7 @@ func TestVariables(t *testing.T) {
 		var script core.Script
 		json.Unmarshal(
 			[]byte(`{
-				"plain": "var $dest: account\ntransfer [DZD.2 42] from @world to $dest\n",
+				"plain": "var $dest: account\ntransfer [DZD.2 42] (\n  from @world\n  to $dest\n)",
 				"vars": {
 					"dest": "@user:042"
 				}
@@ -118,7 +118,7 @@ func TestEnoughFunds(t *testing.T) {
 		var script core.Script
 		json.Unmarshal(
 			[]byte(`{
-				"plain": "transfer [DZD.2 95] from @user:001 to @world\n"
+				"plain": "transfer [DZD.2 95] (\n  from @user:001\n  to @world\n)"
 			}`),
 			&script)
 		err = l.Execute(script)
@@ -150,7 +150,7 @@ func TestNotEnoughFunds(t *testing.T) {
 		var script core.Script
 		json.Unmarshal(
 			[]byte(`{
-				"plain": "transfer [DZD.2 105] from @user:002 to @world\n"
+				"plain": "transfer [DZD.2 105] (\n  from @user:002\n  to @world\n)"
 			}`),
 			&script)
 		err = l.Execute(script)

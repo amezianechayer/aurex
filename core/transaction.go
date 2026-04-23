@@ -4,14 +4,11 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+
+	vmcore "github.com/amezianechayer/corren-vm/core"
 )
 
-type Posting struct {
-	Source      string `json:"source"`
-	Destination string `json:"destination"`
-	Amount      int64  `json:"amount"`
-	Asset       string `json:"asset"`
-}
+type Posting = vmcore.Posting
 
 type Transaction struct {
 	ID        int64     `json:"txid"`
