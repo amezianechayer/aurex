@@ -245,11 +245,11 @@ func NewHttpAPI(lc fx.Lifecycle, resolver *ledger.Resolver) *HttpAPI {
 			contract.AaoifiFAS = core.AaoifiFAS[contract.Type]
 		}
 		err := l.(*ledger.Ledger).SaveContract(contract)
-		res := gin.H{"ok": err == nil}
 		if err != nil {
-			res["err"] = err.Error()
+			c.JSON(200, gin.H{"ok": false, "err": err.Error()})
+			return
 		}
-		c.JSON(200, res)
+		c.JSON(200, gin.H{"ok": true, "contract": contract})
 	})
 
 	r.GET("/:ledger/contracts/:id", func(c *gin.Context) {

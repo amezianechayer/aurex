@@ -12,6 +12,29 @@ import (
 	"github.com/spf13/viper"
 )
 
+func validateGhararTerms(contract *core.ShariaContract) error {
+	required, ok := core.RequiredTerms[contract.Type]
+	if !ok {
+		return nil
+	}
+	for _, field := range required {
+		val, exists := contract.Terms[field]
+		if !exists || val == nil || val == "" {
+			return fmt.Errorf("gharar: contract %s (%s) is missing required term '%s'",
+				contract.ID, contract.Type, field)
+		}
+	}
+	if contract.Type == core.ContractQardHassan {
+		for _, field := range []string{"markup", "interest", "profit", "return"} {
+			if _, exists := contract.Terms[field]; exists {
+				return fmt.Errorf("gharar: qard hassan contract %s must not contain profit term '%s' (riba prohibition)",
+					contract.ID, field)
+			}
+		}
+	}
+	return nil
+}
+
 func (l *Ledger) Execute(script core.Script) error {
 	if script.Plain == "" {
 		return errors.New("no script to execute")
@@ -25,12 +48,26 @@ func (l *Ledger) Execute(script core.Script) error {
 	m := vm.NewMachine(p)
 
 	if viper.GetBool("sharia.enabled") {
+		if script.ContractID != "" {
+			contract, err := l.store.FindContract(script.ContractID)
+			if err != nil {
+				return fmt.Errorf("could not load contract %s: %v", script.ContractID, err)
+			}
+			if contract != nil {
+				if err := validateGhararTerms(contract); err != nil {
+					return err
+				}
+			}
+		}
+
 		for _, name := range viper.GetStringSlice("sharia.constraints") {
 			switch name {
 			case "NO_RIBA":
 				m.AddConstraint(&vm.NoRibaConstraint{})
 			case "NO_GHARAR":
 				m.AddConstraint(&vm.NoGhararConstraint{})
+			case "NO_MAYSIR":
+				m.AddConstraint(&vm.NoMaysirConstraint{})
 			case "ASSET_BACKED":
 				m.AddConstraint(vm.NewAssetBackedConstraint(viper.GetStringSlice("sharia.allowed_assets")))
 			}

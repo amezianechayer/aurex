@@ -24,9 +24,20 @@ var AaoifiFAS = map[ContractType]string{
 	ContractMurabaha:   "FAS-2",
 	ContractMudarabah:  "FAS-3",
 	ContractMusharakah: "FAS-4",
-	ContractIjara:      "FAS-8",
-	ContractSukuk:      "FAS-32",
-	ContractQardHassan: "FAS-16",
+	ContractIjara:      "FAS-32",
+	ContractSukuk:      "FAS-33",
+	ContractQardHassan: "FAS-26",
+}
+
+// RequiredTerms defines mandatory fields in contract.Terms per contract type.
+// Missing fields = gharar (contractual ambiguity).
+var RequiredTerms = map[ContractType][]string{
+	ContractMurabaha:   {"markup", "asset_description"},
+	ContractMudarabah:  {"profit_ratio", "capital"},
+	ContractMusharakah: {"profit_ratio", "loss_ratio"},
+	ContractIjara:      {"rent_amount", "asset_description", "duration"},
+	ContractSukuk:      {"underlying_asset", "face_value"},
+	ContractQardHassan: {},
 }
 
 type ShariaContract struct {
