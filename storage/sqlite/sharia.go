@@ -157,12 +157,11 @@ func (s *SQLiteStore) FindContract(id string) (*core.ShariaContract, error) {
 }
 
 func (s *SQLiteStore) SaveCertificate(cert core.ShariaCertificate) error {
-	ib := sqlbuilder.NewInsertBuilder()
-	ib.InsertInto("sharia_certificates")
-	ib.Cols("id", "contract_id", "txid", "constraint", "result", "issued_at", "authority")
-	ib.Values(cert.ID, cert.ContractID, cert.TxID, cert.Constraint, cert.Result, cert.IssuedAt, cert.Authority)
-	q, args := ib.BuildWithFlavor(sqlbuilder.SQLite)
-	_, err := s.db.Exec(q, args...)
+	_, err := s.db.Exec(
+		`INSERT INTO sharia_certificates (id, contract_id, txid, "constraint", result, issued_at, authority)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		cert.ID, cert.ContractID, cert.TxID, cert.Constraint, cert.Result, cert.IssuedAt, cert.Authority,
+	)
 	return err
 }
 

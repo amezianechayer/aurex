@@ -1,8 +1,10 @@
 package ledger
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/amezianechayer/corren-vm/script/compiler"
 	"github.com/amezianechayer/corren-vm/vm"
@@ -92,9 +94,27 @@ func (l *Ledger) Execute(script core.Script) error {
 		return errors.New("script exited with sharia violation")
 	}
 
-	t := core.Transaction{
-		Postings: m.Postings,
+	ts := []core.Transaction{{Postings: m.Postings}}
+
+	if err := l.Commit(ts); err != nil {
+		return err
 	}
 
-	return l.Commit([]core.Transaction{t})
+	if script.ContractID != "" {
+		now := time.Now().Format(time.RFC3339)
+		raw := fmt.Sprintf("%s:%s:%d:%s", script.ContractID, script.Plain, ts[0].ID, now)
+		h := sha256.Sum256([]byte(raw))
+		cert := core.ShariaCertificate{
+			ID:         fmt.Sprintf("%x", h),
+			ContractID: script.ContractID,
+			TxID:       ts[0].ID,
+			Constraint: "SHARIA_COMPLIANT",
+			Result:     "PASS",
+			IssuedAt:   now,
+			Authority:  "corren-ledger",
+		}
+		_ = l.SaveCertificate(cert)
+	}
+
+	return nil
 }
