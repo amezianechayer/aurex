@@ -69,6 +69,10 @@ func NewHttpAPI(lc fx.Lifecycle, resolver *ledger.Resolver) *HttpAPI {
 		c.Set("ledger", l)
 	})
 
+	r.GET("/_healthcheck", func(c *gin.Context) {
+		c.JSON(200, gin.H{"ok": true, "status": "healthy"})
+	})
+
 	r.GET("/_info", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"server":  "corren-ledger",

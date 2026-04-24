@@ -1,0 +1,21 @@
+services:
+  corren:
+    build: .
+    ports:
+      - "3068:3068"
+    volumes:
+      - corren_data:/data
+    environment:
+      - CORREN_STORAGE_DIR=/data
+      - CORREN_SERVER_HTTP_BIND_ADDRESS=0.0.0.0:3068
+      - CORREN_SHARIA_ENABLED=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3068/_healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  corren_data:

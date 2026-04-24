@@ -1,0 +1,21 @@
+# Git
+.git
+.gitignore
+
+# Build artifacts
+*.db
+*.db-wal
+*.db-shm
+dist/
+coverage.out
+
+# Dev files
+*.farl
+ledger.db*
+
+# Local config (image uses docker/corren.yaml)
+corren.yaml
+
+# OS
+.DS_Store
+Thumbs.db

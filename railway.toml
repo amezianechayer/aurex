@@ -1,0 +1,15 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "corren server start"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[[deploy.healthchecks]]
+type = "http"
+path = "/_healthcheck"
+port = 3068
+initialDelaySeconds = 5
+periodSeconds = 30

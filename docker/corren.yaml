@@ -1,0 +1,29 @@
+debug: false
+
+storage:
+  driver: sqlite
+  dir: /data
+  sqlite:
+    db_name: corren
+
+server:
+  http:
+    bind_address: 0.0.0.0:3068
+
+ledgers:
+  - quickstart
+
+sharia:
+  enabled: true
+  constraints:
+    - NO_RIBA
+    - NO_GHARAR
+    - NO_MAYSIR
+    - ASSET_BACKED
+  allowed_assets:
+    - EUR
+    - USD
+    - DZD
+    - GBP
+    - GOLD
+    - SILVER
