@@ -188,8 +188,8 @@ func (s *SQLiteStore) FindCertificates(contractID string) ([]core.ShariaCertific
 func (s *SQLiteStore) SaveAPIKey(k core.APIKey) error {
 	ib := sqlbuilder.NewInsertBuilder()
 	ib.InsertInto("api_keys")
-	ib.Cols("key_hash", "name", "role", "created_at", "expires_at")
-	ib.Values(k.KeyHash, k.Name, k.Role, k.CreatedAt, k.ExpiresAt)
+	ib.Cols("key_hash", "name", "role", "tier", "created_at", "expires_at")
+	ib.Values(k.KeyHash, k.Name, k.Role, k.Tier, k.CreatedAt, k.ExpiresAt)
 	q, args := ib.BuildWithFlavor(sqlbuilder.SQLite)
 	_, err := s.db.Exec(q, args...)
 	return err
@@ -197,11 +197,11 @@ func (s *SQLiteStore) SaveAPIKey(k core.APIKey) error {
 
 func (s *SQLiteStore) FindAPIKey(keyHash string) (*core.APIKey, error) {
 	row := s.db.QueryRow(
-		`SELECT key_hash, name, role, created_at, COALESCE(expires_at,'')
+		`SELECT key_hash, name, role, COALESCE(tier,'sandbox'), created_at, COALESCE(expires_at,'')
 		 FROM api_keys WHERE key_hash = ?`, keyHash,
 	)
 	var k core.APIKey
-	err := row.Scan(&k.KeyHash, &k.Name, &k.Role, &k.CreatedAt, &k.ExpiresAt)
+	err := row.Scan(&k.KeyHash, &k.Name, &k.Role, &k.Tier, &k.CreatedAt, &k.ExpiresAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -209,6 +209,26 @@ func (s *SQLiteStore) FindAPIKey(keyHash string) (*core.APIKey, error) {
 		return nil, err
 	}
 	return &k, nil
+}
+
+func (s *SQLiteStore) ListAPIKeys() ([]core.APIKey, error) {
+	rows, err := s.db.Query(
+		`SELECT key_hash, name, role, COALESCE(tier,'sandbox'), created_at, COALESCE(expires_at,'')
+		 FROM api_keys ORDER BY created_at DESC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var keys []core.APIKey
+	for rows.Next() {
+		var k core.APIKey
+		if err := rows.Scan(&k.KeyHash, &k.Name, &k.Role, &k.Tier, &k.CreatedAt, &k.ExpiresAt); err != nil {
+			return nil, err
+		}
+		keys = append(keys, k)
+	}
+	return keys, nil
 }
 
 func (s *SQLiteStore) DeleteAPIKey(keyHash string) error {

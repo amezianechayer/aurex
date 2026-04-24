@@ -78,14 +78,18 @@ func (s *SQLiteStore) Initialize() error {
 	}
 
 	for i, statement := range statements {
-		_, err = s.db.Exec(
-			statement,
-		)
-
+		if strings.TrimSpace(statement) == "" {
+			continue
+		}
+		_, err = s.db.Exec(statement)
 		if err != nil {
+			// ALTER TABLE ADD COLUMN fails on re-run if column already exists.
+			// Treat it as a no-op — idempotent migration behaviour.
+			if strings.Contains(err.Error(), "duplicate column name") {
+				continue
+			}
 			fmt.Println(err)
-			err = fmt.Errorf("failed to run statement %d: %w", i, err)
-			return err
+			return fmt.Errorf("failed to run statement %d: %w", i, err)
 		}
 	}
 

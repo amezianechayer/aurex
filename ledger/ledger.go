@@ -228,6 +228,10 @@ func (l *Ledger) FindAPIKey(keyHash string) (*core.APIKey, error) {
 	return l.store.FindAPIKey(keyHash)
 }
 
+func (l *Ledger) ListAPIKeys() ([]core.APIKey, error) {
+	return l.store.ListAPIKeys()
+}
+
 func (l *Ledger) DeleteAPIKey(keyHash string) error {
 	return l.store.DeleteAPIKey(keyHash)
 }

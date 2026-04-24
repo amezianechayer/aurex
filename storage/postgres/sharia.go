@@ -190,20 +190,20 @@ func (s *PGStore) FindCertificates(contractID string) ([]core.ShariaCertificate,
 func (s *PGStore) SaveAPIKey(k core.APIKey) error {
 	_, err := s.Conn().Exec(context.Background(),
 		`INSERT INTO `+s.table("api_keys")+
-			` (key_hash, name, role, created_at, expires_at)
-		 VALUES ($1,$2,$3,$4,$5)`,
-		k.KeyHash, k.Name, k.Role, k.CreatedAt, k.ExpiresAt,
+			` (key_hash, name, role, tier, created_at, expires_at)
+		 VALUES ($1,$2,$3,$4,$5,$6)`,
+		k.KeyHash, k.Name, k.Role, k.Tier, k.CreatedAt, k.ExpiresAt,
 	)
 	return err
 }
 
 func (s *PGStore) FindAPIKey(keyHash string) (*core.APIKey, error) {
 	row := s.Conn().QueryRow(context.Background(),
-		`SELECT key_hash, name, role, created_at, COALESCE(expires_at,'')
+		`SELECT key_hash, name, role, COALESCE(tier,'sandbox'), created_at, COALESCE(expires_at,'')
 		 FROM `+s.table("api_keys")+` WHERE key_hash = $1`, keyHash,
 	)
 	var k core.APIKey
-	err := row.Scan(&k.KeyHash, &k.Name, &k.Role, &k.CreatedAt, &k.ExpiresAt)
+	err := row.Scan(&k.KeyHash, &k.Name, &k.Role, &k.Tier, &k.CreatedAt, &k.ExpiresAt)
 	if err == pgx.ErrNoRows {
 		return nil, nil
 	}
@@ -211,6 +211,26 @@ func (s *PGStore) FindAPIKey(keyHash string) (*core.APIKey, error) {
 		return nil, err
 	}
 	return &k, nil
+}
+
+func (s *PGStore) ListAPIKeys() ([]core.APIKey, error) {
+	rows, err := s.Conn().Query(context.Background(),
+		`SELECT key_hash, name, role, COALESCE(tier,'sandbox'), created_at, COALESCE(expires_at,'')
+		 FROM `+s.table("api_keys")+` ORDER BY created_at DESC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var keys []core.APIKey
+	for rows.Next() {
+		var k core.APIKey
+		if err := rows.Scan(&k.KeyHash, &k.Name, &k.Role, &k.Tier, &k.CreatedAt, &k.ExpiresAt); err != nil {
+			return nil, err
+		}
+		keys = append(keys, k)
+	}
+	return keys, nil
 }
 
 func (s *PGStore) DeleteAPIKey(keyHash string) error {

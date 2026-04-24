@@ -38,7 +38,20 @@ type Store interface {
 	// API keys
 	SaveAPIKey(core.APIKey) error
 	FindAPIKey(keyHash string) (*core.APIKey, error)
+	ListAPIKeys() ([]core.APIKey, error)
 	DeleteAPIKey(keyHash string) error
+}
+
+// NewAdminStore returns an initialized dedicated store for global admin data (API keys).
+func NewAdminStore() (Store, error) {
+	s, err := GetStore("admin")
+	if err != nil {
+		return nil, err
+	}
+	if err := s.Initialize(); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 func GetStore(name string) (Store, error) {

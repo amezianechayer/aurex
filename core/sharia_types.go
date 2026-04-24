@@ -82,11 +82,28 @@ type AssetEntry struct {
 	CreatedAt   string            `json:"created_at"`
 }
 
+type APIKeyTier string
+
+const (
+	TierSandbox    APIKeyTier = "sandbox"
+	TierStarter    APIKeyTier = "starter"
+	TierGrowth     APIKeyTier = "growth"
+	TierEnterprise APIKeyTier = "enterprise"
+)
+
+// TierRateLimit is max requests per hour. 0 = unlimited.
+var TierRateLimit = map[APIKeyTier]int{
+	TierSandbox:    100,
+	TierStarter:    1000,
+	TierGrowth:     10000,
+	TierEnterprise: 0,
+}
+
 type APIKey struct {
-	ID        int64  `json:"id"`
-	KeyHash   string `json:"-"`
-	Name      string `json:"name"`
-	Role      string `json:"role"`
-	CreatedAt string `json:"created_at"`
-	ExpiresAt string `json:"expires_at,omitempty"`
+	KeyHash   string     `json:"-"`
+	Name      string     `json:"name"`
+	Role      string     `json:"role"`
+	Tier      APIKeyTier `json:"tier"`
+	CreatedAt string     `json:"created_at"`
+	ExpiresAt string     `json:"expires_at,omitempty"`
 }

@@ -1,0 +1,14 @@
+transfer [EUR.2 5000] (
+  from @world
+  to   @client:robin
+)
+
+transfer [EUR.2 5000] (
+  from @client:robin
+  to   @commande:3647:paiement
+)
+
+transfer [EUR.2 5000] (
+  from @commande:3647:paiement
+  to   @client:robin
+)

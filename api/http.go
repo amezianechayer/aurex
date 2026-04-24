@@ -9,6 +9,7 @@ import (
 	"github.com/amezianechayer/corren/core"
 	"github.com/amezianechayer/corren/ledger"
 	"github.com/amezianechayer/corren/ledger/query"
+	"github.com/amezianechayer/corren/storage"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
@@ -20,11 +21,17 @@ type HttpAPI struct {
 	engine *gin.Engine
 }
 
-func NewHttpAPI(lc fx.Lifecycle, resolver *ledger.Resolver) *HttpAPI {
+func NewHttpAPI(lc fx.Lifecycle, resolver *ledger.Resolver, adminStore storage.Store) *HttpAPI {
 	gin.SetMode(gin.ReleaseMode)
 
 	r := gin.Default()
-	r.Use(cors.Default())
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"https://cooren.io", "https://www.cooren.io", "http://localhost:3000", "http://localhost:5173"},
+		AllowMethods:     []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "X-API-Key"},
+		ExposeHeaders:    []string{"X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"},
+		AllowCredentials: false,
+	}))
 	r.Use(gin.Recovery())
 
 	if auth := viper.Get("server.http.basic_auth"); auth != nil {
@@ -34,21 +41,8 @@ func NewHttpAPI(lc fx.Lifecycle, resolver *ledger.Resolver) *HttpAPI {
 		}))
 	}
 
-	if keys := viper.GetStringMapString("server.http.api_keys"); len(keys) > 0 {
-		r.Use(func(c *gin.Context) {
-			key := c.GetHeader("X-API-Key")
-			if key == "" {
-				c.AbortWithStatusJSON(401, gin.H{"ok": false, "err": "missing X-API-Key header"})
-				return
-			}
-			if role, ok := keys[key]; ok {
-				c.Set("api_key_role", role)
-				c.Next()
-				return
-			}
-			c.AbortWithStatusJSON(401, gin.H{"ok": false, "err": "invalid API key"})
-		})
-	}
+	r.Use(APIKeyMiddleware(adminStore))
+	registerAPIKeyRoutes(r, adminStore)
 
 	r.Use(func(c *gin.Context) {
 		name := c.Param("ledger")

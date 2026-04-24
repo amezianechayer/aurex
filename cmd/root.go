@@ -39,6 +39,7 @@ func Execute() {
 			app := fx.New(
 				fx.Provide(
 					ledger.NewResolver,
+					storage.NewAdminStore,
 					api.NewHttpAPI,
 				),
 				fx.Invoke(func() {
