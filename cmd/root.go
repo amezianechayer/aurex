@@ -145,6 +145,7 @@ func Execute() {
 	root.AddCommand(UICmd)
 	root.AddCommand(store)
 	root.AddCommand(script)
+	root.AddCommand(APIKeysCmd)
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
