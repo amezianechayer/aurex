@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 
+	"github.com/amezianechayer/corren/api/controllers"
 	"github.com/amezianechayer/corren/ledger"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -11,12 +12,21 @@ import (
 	"go.uber.org/fx"
 )
 
-type HttpAPI struct {
+// Module exported for initializing application
+var Module = fx.Options(
+	controllers.Module,
+)
+
+type API struct {
 	addr   string
 	engine *gin.Engine
 }
 
-func NewHttpAPI(lc fx.Lifecycle, resolver *ledger.Resolver) *HttpAPI {
+func NewAPI(
+	lc fx.Lifecycle,
+	resolver *ledger.Resolver,
+	transactionController *controllers.TransactionController,
+) *API {
 	gin.SetMode(gin.ReleaseMode)
 
 	cc := cors.DefaultConfig()
@@ -24,9 +34,9 @@ func NewHttpAPI(lc fx.Lifecycle, resolver *ledger.Resolver) *HttpAPI {
 	cc.AllowCredentials = true
 	cc.AddAllowHeaders("authorization")
 
-	router := Router(cc, resolver)
+	router := NewRoutes(cc, resolver, transactionController) //todo: use fx
 
-	h := &HttpAPI{
+	h := &API{
 		engine: router,
 		addr:   viper.GetString("server.http.bind_address"),
 	}
@@ -41,6 +51,6 @@ func NewHttpAPI(lc fx.Lifecycle, resolver *ledger.Resolver) *HttpAPI {
 	return h
 }
 
-func (h *HttpAPI) Start() {
+func (h *API) Start() {
 	h.engine.Run(h.addr)
 }
