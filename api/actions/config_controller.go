@@ -1,42 +1,26 @@
 package actions
 
 import (
-	"net/http"
-
-	"github.com/amezianechayer/corren/api/resources"
-	"github.com/amezianechayer/corren/api/services"
 	"github.com/gin-gonic/gin"
 )
 
 // ConfigController -
 type ConfigController struct {
-	Controllers
-	configService *services.ConfigService
+	BaseController
 }
 
 // NewConfigController -
-func NewConfigController(
-	configService *services.ConfigService,
-) *ConfigController {
-	return &ConfigController{
-		configService: configService,
-	}
-}
-
-// CreateConfigController -
-func CreateConfigController() *ConfigController {
-	return NewConfigController(
-		services.CreateConfigService(),
-	)
+func NewConfigController() *ConfigController {
+	return &ConfigController{}
 }
 
 // GetInfo -
 func (ctl *ConfigController) GetInfo(c *gin.Context) {
-	info := ctl.configService.GetConfig()
-	ctl.responseResource(
-		c,
-		http.StatusOK,
-		info,
-		&resources.Info{},
-	)
+	// info := ctl.configService.GetConfig()
+	// ctl.responseResource(
+	// 	c,
+	// 	http.StatusOK,
+	// 	info,
+	// 	&resources.Info{},
+	// )
 }

@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/amezianechayer/corren/api/controllers"
+	"github.com/amezianechayer/corren/api/actions"
 	"github.com/amezianechayer/corren/api/middlewares"
 	"github.com/amezianechayer/corren/ledger"
 	"github.com/gin-contrib/cors"
@@ -12,27 +12,25 @@ import (
 func NewRoutes(
 	cc cors.Config,
 	resolver *ledger.Resolver,
-	transactionController *controllers.TransactionController,
+	configController *actions.ConfigController,
+	ledgerController *actions.LedgerController,
+	scriptController *actions.ScriptController,
+	accountController *actions.AccountController,
+	transactionController *actions.TransactionController,
 ) *gin.Engine {
-	routes := gin.Default()
+	engine := gin.Default()
 
 	// Default Middlewares
-	routes.Use(
+	engine.Use(
 		cors.New(cc),
 		gin.Recovery(),
-		middlewares.AuthMiddleware(routes),
+		middlewares.AuthMiddleware(engine),
 	)
 
-	// API Controllers
-	configController := controllers.CreateConfigController()
-	ledgerController := controllers.CreateLedgerController()
-	accountController := controllers.CreateAccountController()
-	scriptController := controllers.CreateScriptController()
-
 	// API Routes
-	routes.GET("/_info", configController.GetInfo)
+	engine.GET("/_info", configController.GetInfo)
 
-	ledgerGroup := routes.Group("/:ledger", middlewares.LedgerMiddleware(resolver))
+	ledgerGroup := engine.Group("/:ledger", middlewares.LedgerMiddleware(resolver))
 	{
 		// LedgerController
 		ledgerGroup.GET("/stats", ledgerController.GetStats)
@@ -52,5 +50,5 @@ func NewRoutes(
 		ledgerGroup.POST("/script", scriptController.PostScript)
 	}
 
-	return routes
+	return engine
 }

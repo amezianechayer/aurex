@@ -4,7 +4,7 @@ import (
 	"context"
 	_ "embed"
 
-	"github.com/amezianechayer/corren/api/controllers"
+	"github.com/amezianechayer/corren/api/actions"
 	"github.com/amezianechayer/corren/ledger"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -14,7 +14,7 @@ import (
 
 // Module exported for initializing application
 var Module = fx.Options(
-	controllers.Module,
+	actions.Module,
 )
 
 type API struct {
@@ -25,7 +25,11 @@ type API struct {
 func NewAPI(
 	lc fx.Lifecycle,
 	resolver *ledger.Resolver,
-	transactionController *controllers.TransactionController,
+	configController *actions.ConfigController, //todo: use fx
+	ledgerController *actions.LedgerController, //todo: use fx
+	scriptController *actions.ScriptController, //todo: use fx
+	accountController *actions.AccountController, //todo: use fx
+	transactionController *actions.TransactionController, //todo: use fx
 ) *API {
 	gin.SetMode(gin.ReleaseMode)
 
@@ -34,10 +38,19 @@ func NewAPI(
 	cc.AllowCredentials = true
 	cc.AddAllowHeaders("authorization")
 
-	router := NewRoutes(cc, resolver, transactionController) //todo: use fx
+	//todo: use fx
+	router := NewRoutes(
+		cc,
+		resolver,
+		configController,
+		ledgerController,
+		scriptController,
+		accountController,
+		transactionController,
+	)
 
 	h := &API{
-		engine: router,
+		engine: router, //todo: use fx
 		addr:   viper.GetString("server.http.bind_address"),
 	}
 
