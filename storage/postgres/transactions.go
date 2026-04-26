@@ -168,7 +168,7 @@ func (s *PGStore) FindTransactions(q query.Query) (query.Cursor, error) {
 	sqlq, args := sb.BuildWithFlavor(sqlbuilder.PostgreSQL)
 
 	rows, err := s.Conn().Query(
-		context.TODO(),
+		context.Background(),
 		sqlq,
 		args...,
 	)
@@ -258,7 +258,7 @@ func (s *PGStore) GetTransaction(id string) (core.Transaction, error) {
 	tx := core.Transaction{}
 
 	rows, err := s.Conn().Query(
-		context.TODO(),
+		context.Background(),
 		sqlq,
 		args...,
 	)
