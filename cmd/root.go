@@ -64,6 +64,7 @@ func Execute() {
 				}),
 				fx.Invoke(func(lc fx.Lifecycle, h *api.API) {
 				}),
+				api.Module,
 			)
 			app.Run()
 		},
