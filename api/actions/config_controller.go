@@ -3,7 +3,7 @@ package actions
 import (
 	"net/http"
 
-	"github.com/amezianechayer/corren/api/schemas"
+	"github.com/amezianechayer/corren/api/resources"
 	"github.com/amezianechayer/corren/api/services"
 	"github.com/gin-gonic/gin"
 )
@@ -32,10 +32,11 @@ func CreateConfigController() *ConfigController {
 
 // GetInfo -
 func (ctl *ConfigController) GetInfo(c *gin.Context) {
-	ctl.success(
+	info := ctl.configService.GetConfig()
+	ctl.responseResource(
 		c,
 		http.StatusOK,
-		ctl.configService.GetConfig(),
-		&schemas.Infos{},
+		info,
+		&resources.Info{},
 	)
 }

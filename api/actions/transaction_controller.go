@@ -1,6 +1,8 @@
 package actions
 
 import (
+	"net/http"
+
 	"github.com/amezianechayer/corren/core"
 	"github.com/amezianechayer/corren/ledger"
 	"github.com/amezianechayer/corren/ledger/query"
@@ -25,18 +27,22 @@ func CreateTransactionController() *TransactionController {
 // GetTransactions -
 func (ctl *TransactionController) GetTransactions(c *gin.Context) {
 	l, _ := c.Get("ledger")
-	ref := c.Query("reference")
-
 	cursor, err := l.(*ledger.Ledger).FindTransactions(
 		query.After(c.Query("after")),
-		query.Reference(ref),
+		query.Reference(c.Query("reference")),
 	)
-
-	c.JSON(200, gin.H{
-		"ok":     err == nil,
-		"cursor": cursor,
-		"err":    err,
-	})
+	if err != nil {
+		ctl.responseError(
+			c,
+			http.StatusInternalServerError,
+			err,
+		)
+	}
+	ctl.responseCollection(
+		c,
+		http.StatusOK,
+		cursor,
+	)
 }
 
 // PostTransaction -
