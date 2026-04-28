@@ -5,6 +5,7 @@ import (
 	_ "embed"
 
 	"github.com/amezianechayer/corren/api/actions"
+	"github.com/amezianechayer/corren/api/middlewares"
 	"github.com/amezianechayer/corren/api/routes"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -13,15 +14,18 @@ import (
 )
 
 var Module = fx.Options(
+	middlewares.Module,
 	routes.Module,
 	actions.Module,
 )
 
+// API struct
 type API struct {
 	addr   string
 	engine *gin.Engine
 }
 
+// NewAPI
 func NewAPI(
 	lc fx.Lifecycle,
 	routes *routes.Routes,
@@ -48,6 +52,7 @@ func NewAPI(
 	return h
 }
 
+// Start
 func (h *API) Start() {
 	h.engine.Run(h.addr)
 }
