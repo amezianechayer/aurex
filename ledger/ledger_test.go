@@ -84,7 +84,7 @@ func TestTransaction(t *testing.T) {
 
 			fmt.Println(i)
 
-			err := l.Commit(batch)
+			_, err := l.Commit(batch)
 			if err != nil {
 				t.Error(err)
 			}
@@ -112,7 +112,7 @@ func TestTransaction(t *testing.T) {
 
 func TestBalance(t *testing.T) {
 	with(func(l *Ledger) {
-		err := l.Commit([]core.Transaction{
+		_, err := l.Commit([]core.Transaction{
 			{
 				Postings: []core.Posting{
 					{
@@ -147,12 +147,12 @@ func TestReference(t *testing.T) {
 			},
 		}
 
-		err := l.Commit([]core.Transaction{tx})
+		_, err := l.Commit([]core.Transaction{tx})
 		if err != nil {
 			t.Error(err)
 		}
 
-		err = l.Commit([]core.Transaction{tx})
+		_, err = l.Commit([]core.Transaction{tx})
 		if err == nil {
 			t.Fail()
 		}

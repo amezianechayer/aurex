@@ -21,7 +21,6 @@ func (l *Ledger) Execute(script core.Script) error {
 	}
 
 	m := vm.NewMachine(p)
-
 	err = m.SetVarsFromJSON(script.Vars)
 	if err != nil {
 		return fmt.Errorf("could not set variables: %v", err)
@@ -62,11 +61,11 @@ func (l *Ledger) Execute(script core.Script) error {
 			if req.Error != nil {
 				return fmt.Errorf("could not resolve balances: %v", req.Error)
 			}
-			balances, err := l.store.AggregateBalances(req.Account)
+			account, err := l.GetAccount(req.Account)
 			if err != nil {
-				return fmt.Errorf("error fetching balance of %s: %v", req.Account, err)
+				return fmt.Errorf("could not get account %q: %v", req.Account, err)
 			}
-			amt := balances[req.Asset]
+			amt := account.Balances[req.Asset]
 			if amt < 0 {
 				amt = 0
 			}
@@ -74,17 +73,17 @@ func (l *Ledger) Execute(script core.Script) error {
 		}
 	}
 
-	exit_code, err := m.Execute()
+	c, err := m.Execute()
 	if err != nil {
 		return fmt.Errorf("script failed: %v", err)
 	}
-	if exit_code == vm.EXIT_FAIL {
+	if c == vm.EXIT_FAIL {
 		return errors.New("script exited with error code EXIT_FAIL")
 	}
 
 	t := core.Transaction{
 		Postings: m.Postings,
 	}
-
-	return l.Commit([]core.Transaction{t})
+	_, err = l.Commit([]core.Transaction{t})
+	return err
 }

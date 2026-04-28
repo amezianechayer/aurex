@@ -123,7 +123,7 @@ func TestEnoughFunds(t *testing.T) {
 			},
 		}
 
-		err := l.Commit([]core.Transaction{tx})
+		_, err := l.Commit([]core.Transaction{tx})
 		if err != nil {
 			t.Error(err)
 			return
@@ -160,7 +160,7 @@ func TestNotEnoughFunds(t *testing.T) {
 			},
 		}
 
-		err := l.Commit([]core.Transaction{tx})
+		_, err := l.Commit([]core.Transaction{tx})
 		if err != nil {
 			t.Error(err)
 			return
@@ -197,7 +197,7 @@ func TestMetadata(t *testing.T) {
 			},
 		}
 
-		err := l.Commit([]core.Transaction{tx})
+		_, err := l.Commit([]core.Transaction{tx})
 		if err != nil {
 			t.Error(err)
 			return
