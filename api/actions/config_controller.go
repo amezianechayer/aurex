@@ -3,7 +3,6 @@ package actions
 import (
 	"net/http"
 
-	"github.com/amezianechayer/corren/api/resources"
 	"github.com/amezianechayer/corren/config"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
@@ -21,7 +20,7 @@ func NewConfigController() ConfigController {
 
 // GetInfo -
 func (ctl *ConfigController) GetInfo(c *gin.Context) {
-	ctl.responseResource(
+	ctl.response(
 		c,
 		http.StatusOK,
 		config.ConfigInfo{
@@ -34,6 +33,5 @@ func (ctl *ConfigController) GetInfo(c *gin.Context) {
 				},
 			},
 		},
-		&resources.Info{},
 	)
 }

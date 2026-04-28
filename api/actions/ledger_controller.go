@@ -1,6 +1,8 @@
 package actions
 
 import (
+	"net/http"
+
 	"github.com/amezianechayer/corren/ledger"
 	"github.com/gin-gonic/gin"
 )
@@ -20,9 +22,17 @@ func (ctl *LedgerController) GetStats(c *gin.Context) {
 	l, _ := c.Get("ledger")
 
 	stats, err := l.(*ledger.Ledger).Stats()
-
-	c.JSON(200, gin.H{
-		"ok":    err == nil,
-		"stats": stats,
-	})
+	if err != nil {
+		ctl.responseError(
+			c,
+			http.StatusInternalServerError,
+			err,
+		)
+		return
+	}
+	ctl.response(
+		c,
+		http.StatusOK,
+		stats,
+	)
 }
