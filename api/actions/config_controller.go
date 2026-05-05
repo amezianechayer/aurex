@@ -4,8 +4,10 @@ import (
 	"net/http"
 
 	"github.com/amezianechayer/corren/config"
+	_ "github.com/amezianechayer/corren/docs"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
+	"github.com/swaggo/swag"
 )
 
 // ConfigController -
@@ -18,7 +20,13 @@ func NewConfigController() ConfigController {
 	return ConfigController{}
 }
 
-// GetInfo -
+// GetInfo godoc
+// @Summary Server Info
+// @Schemes
+// @Accept json
+// @Produce json
+// @Success 200 {object} config.ConfigInfo{}
+// @Router /_info [get]
 func (ctl *ConfigController) GetInfo(c *gin.Context) {
 	ctl.response(
 		c,
@@ -34,4 +42,12 @@ func (ctl *ConfigController) GetInfo(c *gin.Context) {
 			},
 		},
 	)
+}
+func (ctl *ConfigController) GetDocs(c *gin.Context) {
+	doc, err := swag.ReadDoc("swagger")
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	c.Writer.Write([]byte(doc))
 }
