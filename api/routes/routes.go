@@ -5,6 +5,7 @@ import (
 	"github.com/amezianechayer/corren/api/middlewares"
 	"github.com/amezianechayer/corren/ledger"
 	"github.com/gin-contrib/cors"
+	"github.com/gin-contrib/logger"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 )
@@ -59,7 +60,9 @@ func (r *Routes) Engine(cc cors.Config) *gin.Engine {
 		logger.SetLogger(),
 		r.authMiddleware.AuthMiddleware(engine),
 	)
+
 	engine.GET("/swagger.json", r.configController.GetDocs)
+
 	// API Routes
 	engine.GET("/_info", r.configController.GetInfo)
 
