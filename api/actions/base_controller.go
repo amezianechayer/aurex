@@ -7,8 +7,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Controllers struct
+// actions struct
 type BaseController struct{}
+type BaseResponse struct {
+	Ok bool `json:"ok"`
+}
 
 func (ctl *BaseController) response(c *gin.Context, status int, data interface{}) {
 	if data == nil {

@@ -54,7 +54,6 @@ func Execute() {
 		Use: "start",
 		Run: func(cmd *cobra.Command, args []string) {
 			app := fx.New(
-				api.Module,
 				fx.Provide(
 					ledger.NewResolver,
 					api.NewAPI,

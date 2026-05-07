@@ -22,9 +22,10 @@ func NewScriptController() ScriptController {
 // @Summary Execute a Farl and commit transaction if any
 // @Schemes
 // @Param ledger path string true "ledger"
+// @Param script body core.Script true "script"
 // @Accept json
 // @Produce json
-// @Success 200 {string} string	""
+// @Success 200 {object} actions.BaseResponse
 // @Router /{ledger}/script [post]
 func (ctl *ScriptController) PostScript(c *gin.Context) {
 	l, _ := c.Get("ledger")
