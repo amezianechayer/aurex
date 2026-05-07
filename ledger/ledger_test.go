@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"math/rand"
 	"os"
 	"path"
@@ -40,6 +42,7 @@ func with(f func(l *Ledger)) {
 }
 
 func TestMain(m *testing.M) {
+	log.SetOutput(ioutil.Discard)
 	config.Init()
 
 	viper.Set("storage.dir", os.TempDir())
