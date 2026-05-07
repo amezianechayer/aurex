@@ -7,6 +7,7 @@ import (
 	_ "github.com/amezianechayer/corren/docs"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
+
 	"github.com/swaggo/swag"
 )
 
@@ -22,6 +23,8 @@ func NewConfigController() ConfigController {
 
 // GetInfo godoc
 // @Summary Server Info
+// @Description Show server informations
+// @Tags server
 // @Schemes
 // @Accept json
 // @Produce json
