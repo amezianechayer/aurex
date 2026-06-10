@@ -12,6 +12,7 @@ import (
 
 	"github.com/amezianechayer/corren-vm/script/compiler"
 	"github.com/amezianechayer/corren/api"
+	"github.com/amezianechayer/corren/auth"
 	"github.com/amezianechayer/corren/config"
 	"github.com/amezianechayer/corren/ledger"
 	"github.com/amezianechayer/corren/scheduler"
@@ -71,6 +72,34 @@ func Execute() {
 		},
 	}
 	server.AddCommand(start)
+
+	authCmd := &cobra.Command{Use: "auth"}
+	authCmd.AddCommand(&cobra.Command{
+		Use:   "init",
+		Short: "Create the first admin user and api key (printed once)",
+		Run: func(cmd *cobra.Command, args []string) {
+			config.Init()
+			svc, err := auth.NewServiceFromConfig()
+			if err != nil {
+				fmt.Println("error:", err)
+				os.Exit(1)
+			}
+			password := auth.GenerateToken("")[:16]
+			if _, err := svc.CreateUser("admin", password, auth.RoleAdmin); err != nil {
+				fmt.Println("error (already initialized?):", err)
+				os.Exit(1)
+			}
+			key, _, err := svc.CreateKey("bootstrap-admin", auth.RoleAdmin, nil)
+			if err != nil {
+				fmt.Println("error:", err)
+				os.Exit(1)
+			}
+			fmt.Println("admin credentials created — shown ONCE, store them now:")
+			fmt.Printf("  username: admin\n  password: %s\n  api key:  %s\n", password, key)
+			fmt.Println("enable enforcement with auth.enabled: true in corren.yaml (or CORREN_AUTH_ENABLED=true)")
+		},
+	})
+	root.AddCommand(authCmd)
 
 	conf := &cobra.Command{
 		Use: "config",
