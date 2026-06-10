@@ -71,6 +71,11 @@ Errors: `ERR_INVALID_PARAMS` 400, `ERR_NOT_FOUND` 404,
 `ERR_INVALID_TRANSITION`/`ERR_DUPLICATE` 409,
 `ERR_PRECONDITION`/`ERR_SHARIA_VIOLATION` 422 (with `standard_ref`).
 
+Authentication: when `auth.enabled=true`, every call needs
+`Authorization: Bearer <token>` (api key or session). Roles: `readonly`
+(GET only), `operator` (transitions), `admin`. Bootstrap with
+`corren auth init`. See the `auth/` package.
+
 See `demo/murabaha_demo.sh` for the full curl walkthrough.
 
 ## Scheduler

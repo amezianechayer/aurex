@@ -67,10 +67,10 @@ func TestAuthMatrix(t *testing.T) {
 	f := setup(t)
 
 	cases := []struct {
-		name           string
-		method, url    string
-		token          string
-		expected       int
+		name        string
+		method, url string
+		token       string
+		expected    int
 	}{
 		{"no header", "GET", "/demo/contracts", "", http.StatusUnauthorized},
 		{"garbage token", "GET", "/demo/contracts", "crn_bogus", http.StatusUnauthorized},
