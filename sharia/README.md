@@ -78,6 +78,19 @@ Authentication: when `auth.enabled=true`, every call needs
 
 See `demo/murabaha_demo.sh` for the full curl walkthrough.
 
+## Testing against Postgres
+
+The sqlite suite runs everywhere; the postgres paths are covered by
+env-gated integration tests:
+
+```bash
+docker compose up -d postgres   # exposed on host port 5433
+CORREN_TEST_PG_CONN="postgresql://ledger:ledger@localhost:5433/ledger" \
+  go test ./storage/postgres/ ./auth/ ./sharia/ -count=1
+```
+
+Without the variable these tests skip and `go test ./...` needs no database.
+
 ## Scheduler
 
 A background goroutine (`sharia.scheduler.interval`, default 1h) marks
