@@ -24,6 +24,7 @@ type Routes struct {
 	scriptController      actions.ScriptController
 	accountController     actions.AccountController
 	transactionController actions.TransactionController
+	contractController    actions.ContractController
 }
 
 // NewRoutes -
@@ -36,6 +37,7 @@ func NewRoutes(
 	scriptController actions.ScriptController,
 	accountController actions.AccountController,
 	transactionController actions.TransactionController,
+	contractController actions.ContractController,
 ) *Routes {
 	return &Routes{
 		resolver:              resolver,
@@ -46,6 +48,7 @@ func NewRoutes(
 		scriptController:      scriptController,
 		accountController:     accountController,
 		transactionController: transactionController,
+		contractController:    contractController,
 	}
 }
 
@@ -85,6 +88,14 @@ func (r *Routes) Engine(cc cors.Config) *gin.Engine {
 
 		// ScriptController
 		ledger.POST("/script", r.scriptController.PostScript)
+
+		// ContractController (sharia)
+		ledger.POST("/contracts", r.contractController.PostContract)
+		ledger.GET("/contracts", r.contractController.ListContracts)
+		ledger.GET("/contracts/:id", r.contractController.GetContract)
+		ledger.POST("/contracts/:id/transitions/:name", r.contractController.PostTransition)
+		ledger.GET("/contracts/:id/schedule", r.contractController.GetSchedule)
+		ledger.GET("/contracts/:id/audit", r.contractController.GetAudit)
 	}
 
 	return engine

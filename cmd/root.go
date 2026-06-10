@@ -14,6 +14,7 @@ import (
 	"github.com/amezianechayer/corren/api"
 	"github.com/amezianechayer/corren/config"
 	"github.com/amezianechayer/corren/ledger"
+	"github.com/amezianechayer/corren/scheduler"
 	"github.com/amezianechayer/corren/storage"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
@@ -64,6 +65,7 @@ func Execute() {
 				fx.Invoke(func(lc fx.Lifecycle, h *api.API) {
 				}),
 				api.Module,
+				scheduler.Module,
 			)
 			app.Run()
 		},

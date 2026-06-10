@@ -3,6 +3,7 @@ package storage
 import (
 	"github.com/amezianechayer/corren/core"
 	"github.com/amezianechayer/corren/ledger/query"
+	"github.com/amezianechayer/corren/sharia"
 	"github.com/amezianechayer/corren/storage/postgres"
 	"github.com/amezianechayer/corren/storage/sqlite"
 	"github.com/pkg/errors"
@@ -24,6 +25,8 @@ type Store interface {
 	GetMeta(string, string) (core.Metadata, error)
 	Initialize() error
 	Close()
+
+	sharia.ShariaStore
 }
 
 func GetStore(name string) (Store, error) {

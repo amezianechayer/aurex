@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -61,6 +62,17 @@ func (l *Ledger) Close() {
 	l.store.Close()
 }
 
+// Store exposes the underlying store, which also implements
+// sharia.ShariaStore — the contracts engine shares the ledger's database.
+func (l *Ledger) Store() storage.Store {
+	return l.store
+}
+
+// Name returns the ledger name.
+func (l *Ledger) Name() string {
+	return l.name
+}
+
 func (l *Ledger) Commit(ts []core.Transaction) ([]core.Transaction, error) {
 	defer config.Remember(l.name)
 
@@ -105,7 +117,7 @@ func (l *Ledger) Commit(ts []core.Transaction) ([]core.Transaction, error) {
 	}
 
 	for addr := range rf {
-		if addr == "@world" {
+		if addr == core.WORLD || isVirtualAccount(addr) {
 			continue
 		}
 
@@ -140,6 +152,14 @@ func (l *Ledger) Commit(ts []core.Transaction) ([]core.Transaction, error) {
 	err := l.store.SaveTransactions(ts)
 	l._last = &ts[len(ts)-1]
 	return ts, err
+}
+
+// isVirtualAccount: only the technical counterpart accounts of sharia
+// contracts may carry a negative balance. CLOSED list — do not widen:
+// receivable, deferred and inventory must never be exempted.
+func isVirtualAccount(addr string) bool {
+	return strings.HasPrefix(addr, "@contracts:") &&
+		strings.HasSuffix(addr, ":counterpart")
 }
 
 func (l *Ledger) GetLastTransaction() (core.Transaction, error) {
