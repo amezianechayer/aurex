@@ -33,15 +33,18 @@ func TestHash(t *testing.T) {
 
 	h1 := Hash(nil, &a)
 
-	if h1 != "3d60910b8f0aab20d17e3e8aa71ca9fe54634fe03466ec7ca49822bc4c5cac7f" {
-		t.Fail()
+	// golden values recomputed after the Transaction JSON shape changed
+	// (Reference/Metadata fields); the hash only needs to be stable and
+	// chained, not equal to a historical value
+	if h1 != "8aa09549e0fc03174bb3e084765750baf8c23489c1361a3f55cb0c3695c685c6" {
+		t.Fatalf("unexpected h1: %s", h1)
 	}
 
 	a.Hash = h1
 	h2 := Hash(&a, &b)
 
-	if h2 != "b604e920f4f0d20fd2a2b09038ab9fc21d5761f05cdbd33148000a3f2ab7e65c" {
-		t.Fail()
+	if h2 != "157b62b06826de9b6181e55e92c2686ca532938353ecb5ec7a6be512ad09b3b6" {
+		t.Fatalf("unexpected h2: %s", h2)
 	}
 }
 

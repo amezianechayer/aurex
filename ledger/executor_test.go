@@ -241,9 +241,11 @@ transfer [DZD.2 *] (
 			t.Fatalf("execution error: %v", err)
 		}
 
+		// corren-vm >= 0.1.12 allocates 15.5% of 100 as 16 (rounds to
+		// nearest); the remaining 84 goes to the seller
 		assertBalance(t, l, "@sales:042", "DZD.2", 0)
-		assertBalance(t, l, "@users:053", "DZD.2", 85)
-		assertBalance(t, l, "@plateforme", "DZD.2", 15)
+		assertBalance(t, l, "@users:053", "DZD.2", 84)
+		assertBalance(t, l, "@plateforme", "DZD.2", 16)
 
 		fmt.Println("TestMetadata passed ✅")
 	})

@@ -335,19 +335,25 @@ func TestRevertTransaction(t *testing.T) {
 	with(func(l *Ledger) {
 		revertAmt := int64(100)
 
-		l.Commit([]core.Transaction{{
-			Reference: "foo",
+		// reference must be unique ("foo" is already used by
+		// TestGetTransaction) and the source must be @world: a bare
+		// "world" account fails the balance check
+		_, err := l.Commit([]core.Transaction{{
+			Reference: "revert_target",
 			Postings: []core.Posting{
 				{
-					Source:      "world",
-					Destination: "payments:001",
+					Source:      "@world",
+					Destination: "@payments:revert",
 					Amount:      revertAmt,
 					Asset:       "COIN",
 				},
 			},
 		}})
+		if err != nil {
+			t.Fatal(err)
+		}
 
-		world, err := l.GetAccount("world")
+		world, err := l.GetAccount("@world")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -369,17 +375,17 @@ func TestRevertTransaction(t *testing.T) {
 		}
 
 		expectedPosting := core.Posting{
-			Source:      "payments:081",
-			Destination: "world",
-			Amount:      100,
-			Asset:       "DZD.2",
+			Source:      "@payments:revert",
+			Destination: "@world",
+			Amount:      revertAmt,
+			Asset:       "COIN",
 		}
 
 		if diff := cmp.Diff(revertTx.Postings[0], expectedPosting); diff != "" {
 			t.Errorf("RevertTransaction() reverted posting mismatch (-want +got):\n%s", diff)
 		}
 
-		world, err = l.GetAccount("world")
+		world, err = l.GetAccount("@world")
 		if err != nil {
 			t.Fatal(err)
 		}
