@@ -19,6 +19,7 @@ require (
 	github.com/stretchr/testify v1.8.1 // indirect
 	github.com/swaggo/swag v1.7.4
 	go.uber.org/fx v1.13.1
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/net v0.0.0-20211123203042-d83791d6bcd9 // indirect
 	golang.org/x/sys v0.0.0-20211124211545-fe61309f8881 // indirect
