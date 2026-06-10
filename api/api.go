@@ -7,6 +7,7 @@ import (
 	"github.com/amezianechayer/corren/api/actions"
 	"github.com/amezianechayer/corren/api/middlewares"
 	"github.com/amezianechayer/corren/api/routes"
+	"github.com/amezianechayer/corren/auth"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
@@ -14,6 +15,7 @@ import (
 )
 
 var Module = fx.Options(
+	fx.Provide(auth.NewServiceFromConfig),
 	middlewares.Module,
 	routes.Module,
 	actions.Module,

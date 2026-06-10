@@ -56,6 +56,11 @@ func withAPI(t *testing.T, f func(r *gin.Engine, l *ledger.Ledger)) {
 
 func do(t *testing.T, r *gin.Engine, method, url string, body interface{}) (int, map[string]interface{}) {
 	t.Helper()
+	return doWithHeaders(t, r, method, url, body, nil)
+}
+
+func doWithHeaders(t *testing.T, r *gin.Engine, method, url string, body interface{}, headers map[string]string) (int, map[string]interface{}) {
+	t.Helper()
 	var buf bytes.Buffer
 	if body != nil {
 		if err := json.NewEncoder(&buf).Encode(body); err != nil {
@@ -64,6 +69,9 @@ func do(t *testing.T, r *gin.Engine, method, url string, body interface{}) (int,
 	}
 	req := httptest.NewRequest(method, url, &buf)
 	req.Header.Set("Content-Type", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 

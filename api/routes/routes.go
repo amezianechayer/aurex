@@ -25,6 +25,7 @@ type Routes struct {
 	accountController     actions.AccountController
 	transactionController actions.TransactionController
 	contractController    actions.ContractController
+	authController        actions.AuthController
 }
 
 // NewRoutes -
@@ -38,6 +39,7 @@ func NewRoutes(
 	accountController actions.AccountController,
 	transactionController actions.TransactionController,
 	contractController actions.ContractController,
+	authController actions.AuthController,
 ) *Routes {
 	return &Routes{
 		resolver:              resolver,
@@ -49,6 +51,7 @@ func NewRoutes(
 		accountController:     accountController,
 		transactionController: transactionController,
 		contractController:    contractController,
+		authController:        authController,
 	}
 }
 
@@ -65,6 +68,19 @@ func (r *Routes) Engine(cc cors.Config) *gin.Engine {
 	)
 
 	engine.GET("/swagger.json", r.configController.GetDocs)
+
+	// AuthController
+	authGroup := engine.Group("/auth")
+	{
+		authGroup.POST("/login", r.authController.Login)
+		authGroup.POST("/logout", r.authController.Logout)
+		authGroup.GET("/me", r.authController.Me)
+		authGroup.POST("/admin/keys", r.authController.CreateKey)
+		authGroup.GET("/admin/keys", r.authController.ListKeys)
+		authGroup.DELETE("/admin/keys/:id", r.authController.RevokeKey)
+		authGroup.POST("/admin/users", r.authController.CreateUser)
+		authGroup.GET("/admin/users", r.authController.ListUsers)
+	}
 
 	// API Routes
 	engine.GET("/_info", r.configController.GetInfo)

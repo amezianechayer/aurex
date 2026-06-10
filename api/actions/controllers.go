@@ -11,4 +11,5 @@ var Module = fx.Options(
 	fx.Provide(NewAccountController),
 	fx.Provide(NewTransactionController),
 	fx.Provide(NewContractController),
+	fx.Provide(NewAuthController),
 )
