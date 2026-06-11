@@ -50,6 +50,10 @@ func NewStore(name string) (*SQLiteStore, error) {
 func (s *SQLiteStore) Initialize() error {
 	log.Println("initializing sqlite db")
 
+	if err := s.repairLegacyShariaTables(); err != nil {
+		return err
+	}
+
 	statements := []string{}
 
 	entries, err := migrations.ReadDir("migration")

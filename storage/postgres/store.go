@@ -58,6 +58,10 @@ func NewStore(name string) (*PGStore, error) {
 }
 
 func (s *PGStore) Initialize() error {
+	if err := s.repairLegacyShariaTables(); err != nil {
+		return err
+	}
+
 	statements := []string{}
 
 	entries, err := migrations.ReadDir("migration")

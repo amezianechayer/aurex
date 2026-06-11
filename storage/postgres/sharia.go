@@ -12,6 +12,47 @@ import (
 	"github.com/spf13/viper"
 )
 
+// shariaSentinels maps each sharia table to a column that only exists in
+// the current schema; legacy tables (abandoned sharia-finance branch) are
+// renamed aside before migrations run.
+var shariaSentinels = map[string]string{
+	"sharia_contracts": "state",
+	"sharia_schedule":  "principal_part",
+	"sharia_audit":     "prev_hash",
+}
+
+func (s *PGStore) repairLegacyShariaTables() error {
+	ctx := context.Background()
+	for tbl, sentinel := range shariaSentinels {
+		var exists int
+		err := s.Conn().QueryRow(ctx,
+			`SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = $1 AND table_name = $2`,
+			s.ledger, tbl,
+		).Scan(&exists)
+		if err != nil || exists == 0 {
+			continue
+		}
+
+		var hasSentinel int
+		err = s.Conn().QueryRow(ctx,
+			`SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 AND column_name = $3`,
+			s.ledger, tbl, sentinel,
+		).Scan(&hasSentinel)
+		if err != nil {
+			return err
+		}
+
+		if hasSentinel == 0 {
+			if _, err := s.Conn().Exec(ctx, fmt.Sprintf(
+				`ALTER TABLE %q.%q RENAME TO %q`, s.ledger, tbl, tbl+"_legacy",
+			)); err != nil {
+				return fmt.Errorf("failed to move legacy table %s aside: %w", tbl, err)
+			}
+		}
+	}
+	return nil
+}
+
 func (s *PGStore) SaveContract(c sharia.Contract) error {
 	params, err := json.Marshal(c.Params)
 	if err != nil {

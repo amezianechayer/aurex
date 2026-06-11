@@ -55,6 +55,60 @@ func testContract(id string) sharia.Contract {
 	}
 }
 
+// Databases touched by the abandoned feature/sharia-finance branch have a
+// sharia_contracts table with an incompatible schema (status/parties, no
+// state column). Initialize must rename it aside and create ours.
+func TestInitializeRepairsLegacyShariaTables(t *testing.T) {
+	os.Remove(path.Join(os.TempDir(), "sharia_store_shlegacy.db"))
+	s, err := NewStore("shlegacy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	// simulate the legacy table BEFORE migrations run
+	_, err = s.db.Exec(`CREATE TABLE sharia_contracts (
+		"id" varchar PRIMARY KEY,
+		"type" varchar NOT NULL,
+		"status" varchar NOT NULL DEFAULT 'PENDING',
+		"ledger" varchar NOT NULL,
+		"parties" varchar
+	)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.Exec(`INSERT INTO sharia_contracts ("id","type","ledger") VALUES ('old1','murabaha','quickstart')`); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.Initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	// the new schema must work
+	if err := s.SaveContract(testContract("mur_after_repair")); err != nil {
+		t.Fatalf("SaveContract must work after repair: %v", err)
+	}
+	got, err := s.GetContract("mur_after_repair")
+	if err != nil || got.State != sharia.StatePromise {
+		t.Fatalf("got %+v err %v", got, err)
+	}
+
+	// the legacy data must be preserved aside, not dropped
+	var n int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM sharia_contracts_legacy`).Scan(&n); err != nil {
+		t.Fatalf("legacy table must be preserved: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("expected 1 legacy row, got %d", n)
+	}
+
+	// idempotent: a second Initialize must not fail
+	if err := s.Initialize(); err != nil {
+		t.Fatalf("second Initialize must be idempotent: %v", err)
+	}
+}
+
 func TestContractRoundTrip(t *testing.T) {
 	withStore(t, func(s *SQLiteStore) {
 		c := testContract("mur_roundtrip")

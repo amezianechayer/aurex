@@ -37,8 +37,9 @@ const (
 const TemplateVersionMurabaha = "murabaha/1.0.0"
 
 var (
-	// FaRl lexer: ASSET : [A-Z][A-Z0-9]*, core validates up to 8 chars.
-	assetRe = regexp.MustCompile(`^[A-Z][A-Z0-9]{0,7}$`)
+	// FaRl assets: [A-Z][A-Z0-9]* with an optional dotted precision
+	// suffix — the platform's historical convention is "DZD.2"/"EUR.2".
+	assetRe = regexp.MustCompile(`^[A-Z][A-Z0-9]{0,7}(\.[0-9]{1,2})?$`)
 	// FaRl lexer: ACCOUNT : '@' [a-z_][a-z0-9_:]*
 	accountRe = regexp.MustCompile(`^@[a-z_][a-z0-9_:]*$`)
 	// Contract IDs are embedded in account addresses: lowercase only, no dashes.

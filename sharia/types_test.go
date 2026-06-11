@@ -26,6 +26,27 @@ func TestValidateParamsOK(t *testing.T) {
 	}
 }
 
+// The platform's historical asset convention uses a dotted precision
+// suffix (DZD.2, EUR.2) and FaRl compiles it — the validator must too.
+func TestValidateParamsAcceptsDottedAssets(t *testing.T) {
+	for _, asset := range []string{"DZD.2", "EUR.2", "SAR2", "GEM"} {
+		p := validParams()
+		p.Cost.Asset = asset
+		p.Markup.Asset = asset
+		if err := p.Validate(); err != nil {
+			t.Fatalf("asset %q must be valid: %v", asset, err)
+		}
+	}
+	for _, asset := range []string{"dzd.2", ".2", "DZD.", "DZD..2", "D Z"} {
+		p := validParams()
+		p.Cost.Asset = asset
+		p.Markup.Asset = asset
+		if err := p.Validate(); err == nil {
+			t.Fatalf("asset %q must be invalid", asset)
+		}
+	}
+}
+
 func TestValidateParamsDefaults(t *testing.T) {
 	p := validParams()
 	p.BankTreasury = ""
