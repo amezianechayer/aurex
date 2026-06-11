@@ -66,9 +66,34 @@ func Remember(ledger string) {
 
 	viper.Set("ledgers", append(ledgers, ledger))
 
-	err := viper.WriteConfig()
+	// Persist ONLY the ledgers list. Writing the whole global viper state
+	// would leak env vars and runtime overrides (storage.dir, auth.enabled,
+	// test settings…) into the user's config file — that bug has bitten:
+	// a test run once rewrote storage.dir and the user "lost" their data.
+	file := viper.New()
+	file.SetConfigName("corren")
+	file.SetConfigType("yaml")
+	file.AddConfigPath("$HOME/.corren")
+	file.AddConfigPath("/etc/corren")
 
-	if err != nil {
+	if err := file.ReadInConfig(); err != nil {
+		log.Printf(
+			"failed to read config: ledger %s will not be remembered\n",
+			ledger,
+		)
+		return
+	}
+
+	existing := []string{}
+	for _, v := range file.GetStringSlice("ledgers") {
+		if v == ledger {
+			return
+		}
+		existing = append(existing, v)
+	}
+	file.Set("ledgers", append(existing, ledger))
+
+	if err := file.WriteConfig(); err != nil {
 		log.Printf(
 			"failed to write config: ledger %s will not be remembered\n",
 			ledger,
