@@ -59,6 +59,77 @@ func TestIjarahValidateRejects(t *testing.T) {
 	}
 }
 
+func TestIjarahAcquirePostings(t *testing.T) {
+	p := validIjarah()
+	got := IjarahAcquirePostings("ijr1", p)
+	if len(got) != 3 {
+		t.Fatalf("expected 3, got %d", len(got))
+	}
+	assertPosting(t, got[0], "@bank:treasury", "@supplier:toyota", "DZD.2", 10000000)
+	assertPosting(t, got[1], "@world", "@contracts:ijr1:asset", "VHCL1", 1)
+	assertPosting(t, got[2], "@world", "@contracts:ijr1:asset", "DZD.2", 10000000)
+}
+
+func TestIjarahLeasePostings(t *testing.T) {
+	p := validIjarah()
+	got := IjarahLeasePostings("ijr1", p)
+	if len(got) != 1 {
+		t.Fatalf("expected 1, got %d", len(got))
+	}
+	assertPosting(t, got[0], "@contracts:ijr1:asset", "@client:anis:in_use", "VHCL1", 1)
+}
+
+func TestIjarahPayRentPostings(t *testing.T) {
+	p := validIjarah()
+	inst := Installment{Seq: 1, Amount: 500000, DepreciationPart: 416666}
+	got := IjarahPayRentPostings("ijr1", p, inst, false)
+	if len(got) != 3 {
+		t.Fatalf("expected 3, got %d", len(got))
+	}
+	assertPosting(t, got[0], "@client:anis", "@bank:treasury", "DZD.2", 500000)
+	assertPosting(t, got[1], "@world", "@bank:income:ijarah", "DZD.2", 500000)
+	assertPosting(t, got[2], "@contracts:ijr1:asset", "@bank:expense:depreciation", "DZD.2", 416666)
+}
+
+func TestIjarahPayRentPostingsLastReturnsAsset(t *testing.T) {
+	p := validIjarah()
+	inst := Installment{Seq: 24, Amount: 500000, DepreciationPart: 416682}
+	got := IjarahPayRentPostings("ijr1", p, inst, true) // last period
+	if len(got) != 4 {
+		t.Fatalf("expected 4 on last period, got %d", len(got))
+	}
+	assertPosting(t, got[3], "@client:anis:in_use", "@bank:inventory:returned", "VHCL1", 1)
+}
+
+func TestIjarahPenaltyRejectsNonCharity(t *testing.T) {
+	p := validIjarah()
+	if _, err := IjarahPenaltyPostings("ijr1", p, 20000, "@bank:income:ijarah"); err == nil {
+		t.Fatal("expected SS-3 violation")
+	}
+	got, err := IjarahPenaltyPostings("ijr1", p, 20000, "@charity:pool")
+	if err != nil || len(got) != 1 {
+		t.Fatalf("charity penalty should pass: %v", err)
+	}
+	assertPosting(t, got[0], "@client:anis", "@charity:pool", "DZD.2", 20000)
+}
+
+func TestIjarahCancelFromAcquired(t *testing.T) {
+	p := validIjarah()
+	got := IjarahCancelPostings("ijr1", p, StateAcquired)
+	if len(got) != 2 {
+		t.Fatalf("expected 2, got %d", len(got))
+	}
+	assertPosting(t, got[0], "@contracts:ijr1:asset", "@bank:inventory:unsold", "VHCL1", 1)
+	assertPosting(t, got[1], "@contracts:ijr1:asset", "@world", "DZD.2", 10000000)
+}
+
+func TestIjarahCancelFromPromiseNoPostings(t *testing.T) {
+	p := validIjarah()
+	if got := IjarahCancelPostings("ijr1", p, StatePromise); len(got) != 0 {
+		t.Fatalf("expected no postings from PROMISE, got %d", len(got))
+	}
+}
+
 func TestBuildIjarahScheduleReference(t *testing.T) {
 	items, err := BuildIjarahSchedule(10000000, 500000, 24, "2026-07-01T00:00:00Z", 30)
 	if err != nil {
