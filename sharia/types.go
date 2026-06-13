@@ -116,14 +116,15 @@ type Contract struct {
 }
 
 type Installment struct {
-	Seq           int    `json:"seq"`
-	DueDate       string `json:"due_date"`
-	Amount        int64  `json:"amount"`
-	PrincipalPart int64  `json:"principal_part"`
-	ProfitPart    int64  `json:"profit_part"`
-	Status        string `json:"status"`
-	PaidTxID      int64  `json:"paid_tx_id"`
-	PaidAt        string `json:"paid_at,omitempty"`
+	Seq              int    `json:"seq"`
+	DueDate          string `json:"due_date"`
+	Amount           int64  `json:"amount"`
+	PrincipalPart    int64  `json:"principal_part"`
+	ProfitPart       int64  `json:"profit_part"`
+	DepreciationPart int64  `json:"depreciation_part,omitempty"`
+	Status           string `json:"status"`
+	PaidTxID         int64  `json:"paid_tx_id"`
+	PaidAt           string `json:"paid_at,omitempty"`
 }
 
 type DueItem struct {
@@ -161,4 +162,76 @@ const (
 	UnsoldInventory     = "@bank:inventory:unsold"
 	DefaultCharityPool  = "@charity:pool"
 	DefaultBankTreasury = "@bank:treasury"
+)
+
+const (
+	TypeIjarah = "ijarah"
+
+	StateLeased    = "LEASED"
+	StateCompleted = "COMPLETED"
+
+	TemplateVersionIjarah = "ijarah/1.0.0"
+	RefSS9                = "AAOIFI-SS-9"
+)
+
+type IjarahParams struct {
+	AssetCode    string   `json:"asset_code"`
+	Cost         Monetary `json:"cost"`
+	Rent         Monetary `json:"rent"`
+	Client       string   `json:"client"`
+	Supplier     string   `json:"supplier"`
+	BankTreasury string   `json:"bank_treasury"`
+	Periods      int      `json:"periods"`
+	FirstDue     string   `json:"first_due"`
+	PeriodDays   int      `json:"period_days"`
+}
+
+func (p *IjarahParams) Validate() error {
+	if p.BankTreasury == "" {
+		p.BankTreasury = "@bank:treasury"
+	}
+	if p.PeriodDays == 0 {
+		p.PeriodDays = 30
+	}
+	switch {
+	case p.Cost.Amount <= 0:
+		return newError(ErrInvalidParams, "cost.amount must be > 0")
+	case p.Rent.Amount <= 0:
+		return newError(ErrInvalidParams, "rent.amount must be > 0")
+	case !assetRe.MatchString(p.Cost.Asset):
+		return newError(ErrInvalidParams, "cost.asset is not a valid asset code")
+	case p.Cost.Asset != p.Rent.Asset:
+		return newError(ErrInvalidParams, "cost and rent asset must match")
+	case !assetRe.MatchString(p.AssetCode):
+		return newError(ErrInvalidParams, "asset_code is not a valid asset code")
+	case p.AssetCode == p.Cost.Asset:
+		return newError(ErrInvalidParams, "asset_code must differ from the monetary asset")
+	case p.Periods < 1:
+		return newError(ErrInvalidParams, "periods must be >= 1")
+	case !accountRe.MatchString(p.Client):
+		return newError(ErrInvalidParams, "client is not a valid account address")
+	case !accountRe.MatchString(p.Supplier):
+		return newError(ErrInvalidParams, "supplier is not a valid account address")
+	case !accountRe.MatchString(p.BankTreasury):
+		return newError(ErrInvalidParams, "bank_treasury is not a valid account address")
+	case p.PeriodDays < 1:
+		return newError(ErrInvalidParams, "period_days must be >= 1")
+	}
+	if _, err := time.Parse(time.RFC3339, p.FirstDue); err != nil {
+		return newError(ErrInvalidParams, "first_due is not a valid RFC3339 date")
+	}
+	if p.Rent.Amount*int64(p.Periods) <= p.Cost.Amount {
+		return newError(ErrInvalidParams, "rent over the term must exceed cost")
+	}
+	return nil
+}
+
+// Ijarah account helpers
+func AssetAccount(id string) string     { return "@contracts:" + id + ":asset" }
+func InUseAccount(client string) string { return client + ":in_use" }
+
+const (
+	IjarahIncomeAccount = "@bank:income:ijarah"
+	DepreciationAccount = "@bank:expense:depreciation"
+	ReturnedInventory   = "@bank:inventory:returned"
 )

@@ -17,6 +17,28 @@ func SplitEven(total int64, n int) []int64 {
 	return parts
 }
 
+// BuildIjarahSchedule: fixed rent per period, straight-line depreciation of
+// cost over the term (remainder on the last period). Integer-exact (I-6).
+func BuildIjarahSchedule(cost, rent int64, periods int, firstDue string, periodDays int) ([]Installment, error) {
+	first, err := time.Parse(time.RFC3339, firstDue)
+	if err != nil {
+		return nil, fmt.Errorf("invalid first_due date: %w", err)
+	}
+	depr := SplitEven(cost, periods)
+	items := make([]Installment, periods)
+	for i := 0; i < periods; i++ {
+		items[i] = Installment{
+			Seq:              i + 1,
+			DueDate:          first.UTC().AddDate(0, 0, i*periodDays).Format(time.RFC3339),
+			Amount:           rent,
+			DepreciationPart: depr[i],
+			Status:           StatusPending,
+			PaidTxID:         -1,
+		}
+	}
+	return items, nil
+}
+
 // BuildSchedule builds the installment plan for cost+markup over n periods.
 // All arithmetic is int64 minor units (invariant I-6): no floats, ever.
 func BuildSchedule(cost, markup int64, n int, firstDue string, periodDays int) ([]Installment, error) {
