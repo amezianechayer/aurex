@@ -1,6 +1,7 @@
 package sharia_test
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"log"
 	"os"
@@ -14,6 +15,13 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
 )
+
+// rawParams marshals murabaha params into the json.RawMessage that
+// CreateRequest now carries (the engine decodes per contract kind).
+func rawParams(p sharia.MurabahaParams) json.RawMessage {
+	raw, _ := json.Marshal(p)
+	return raw
+}
 
 func TestMain(m *testing.M) {
 	log.SetOutput(ioutil.Discard)
@@ -116,7 +124,7 @@ func TestScenarioANominalCycle(t *testing.T) {
 		c, schedule, err := e.Create(sharia.CreateRequest{
 			Type:   sharia.TypeMurabaha,
 			ID:     id,
-			Params: params("@client:ameziane", "@supplier:toyota", "@bank:treasury", 24),
+			Params: rawParams(params("@client:ameziane", "@supplier:toyota", "@bank:treasury", 24)),
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -195,7 +203,7 @@ func TestScenarioBSellWithoutPossession(t *testing.T) {
 		_, _, err := e.Create(sharia.CreateRequest{
 			Type:   sharia.TypeMurabaha,
 			ID:     id,
-			Params: params("@client:scen_b", "@supplier:scen_b", "@bank:treasury", 12),
+			Params: rawParams(params("@client:scen_b", "@supplier:scen_b", "@bank:treasury", 12)),
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -384,7 +392,7 @@ func TestEngineEdgeCases(t *testing.T) {
 		_, _, err = e.Create(sharia.CreateRequest{
 			Type:   sharia.TypeMurabaha,
 			ID:     "mur_badparams",
-			Params: sharia.MurabahaParams{},
+			Params: rawParams(sharia.MurabahaParams{}),
 		})
 		shariaErr(t, err, sharia.ErrInvalidParams)
 
@@ -392,7 +400,7 @@ func TestEngineEdgeCases(t *testing.T) {
 		_, _, err = e.Create(sharia.CreateRequest{
 			Type:   sharia.TypeMurabaha,
 			ID:     id,
-			Params: params("@client:edge", "@supplier:edge", "@bank:pauper_treasury", 6),
+			Params: rawParams(params("@client:edge", "@supplier:edge", "@bank:pauper_treasury", 6)),
 		})
 		shariaErr(t, err, sharia.ErrDuplicate)
 
@@ -400,7 +408,7 @@ func TestEngineEdgeCases(t *testing.T) {
 		_, _, err = e.Create(sharia.CreateRequest{
 			Type:   "ijarah",
 			ID:     "mur_badtype",
-			Params: params("@client:edge", "@supplier:edge", "@bank:treasury", 6),
+			Params: rawParams(params("@client:edge", "@supplier:edge", "@bank:treasury", 6)),
 		})
 		shariaErr(t, err, sharia.ErrInvalidParams)
 	})
@@ -441,7 +449,7 @@ func TestCancelFlows(t *testing.T) {
 
 func mustCreate(t *testing.T, e *sharia.Engine, id string, p sharia.MurabahaParams) (sharia.Contract, []sharia.Installment) {
 	t.Helper()
-	c, s, err := e.Create(sharia.CreateRequest{Type: sharia.TypeMurabaha, ID: id, Params: p})
+	c, s, err := e.Create(sharia.CreateRequest{Type: sharia.TypeMurabaha, ID: id, Params: rawParams(p)})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -57,3 +57,30 @@ func kindFor(contractType string) (ContractKind, bool) {
 	k, ok := registry[contractType]
 	return k, ok
 }
+
+// kindInitialState returns the state a freshly created contract of this type
+// starts in. All current contract types begin in PROMISE.
+func kindInitialState(t string) string {
+	switch t {
+	default:
+		return StatePromise
+	}
+}
+
+// templateVersionFor returns the stored template version for a contract type.
+func templateVersionFor(t string) string {
+	switch t {
+	case TypeMurabaha:
+		return TemplateVersionMurabaha
+	default:
+		return TemplateVersionMurabaha
+	}
+}
+
+// createStandardRef returns the AAOIFI reference recorded on the created event.
+func createStandardRef(t string) string {
+	switch t {
+	default:
+		return RefSS8
+	}
+}

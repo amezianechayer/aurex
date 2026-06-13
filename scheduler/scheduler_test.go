@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"log"
 	"os"
@@ -14,6 +15,13 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
 )
+
+// rawParams marshals murabaha params into the json.RawMessage CreateRequest
+// now carries.
+func rawParams(p sharia.MurabahaParams) json.RawMessage {
+	raw, _ := json.Marshal(p)
+	return raw
+}
 
 func TestMain(m *testing.M) {
 	log.SetOutput(ioutil.Discard)
@@ -63,7 +71,7 @@ func TestRunOnceMarksOverdueOnSoldContractsOnly(t *testing.T) {
 			FirstDue:     "2026-01-01T00:00:00Z",
 			PeriodDays:   30,
 		}
-		if _, _, err := e.Create(sharia.CreateRequest{ID: "mur_sched_sold", Params: p}); err != nil {
+		if _, _, err := e.Create(sharia.CreateRequest{ID: "mur_sched_sold", Params: rawParams(p)}); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := e.Transition("mur_sched_sold", "acquire", sharia.TransitionInput{}); err != nil {
@@ -76,7 +84,7 @@ func TestRunOnceMarksOverdueOnSoldContractsOnly(t *testing.T) {
 		// a second contract stays in PROMISE: it must NOT be touched
 		p2 := p
 		p2.Client = "@client:sched2"
-		if _, _, err := e.Create(sharia.CreateRequest{ID: "mur_sched_promise", Params: p2}); err != nil {
+		if _, _, err := e.Create(sharia.CreateRequest{ID: "mur_sched_promise", Params: rawParams(p2)}); err != nil {
 			t.Fatal(err)
 		}
 

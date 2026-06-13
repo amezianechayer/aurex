@@ -41,7 +41,7 @@ func TestPostgresContractLifecycle(t *testing.T) {
 
 			_, schedule, err := e.Create(sharia.CreateRequest{
 				ID:     id,
-				Params: params("@client:pg", "@supplier:pg", "@bank:treasury", 24),
+				Params: rawParams(params("@client:pg", "@supplier:pg", "@bank:treasury", 24)),
 			})
 			if err != nil {
 				t.Fatal(err)

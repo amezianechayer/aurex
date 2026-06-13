@@ -20,9 +20,9 @@ type LedgerPort interface {
 }
 
 type CreateRequest struct {
-	Type   string         `json:"type"`
-	ID     string         `json:"id"`
-	Params MurabahaParams `json:"params"`
+	Type   string          `json:"type"`
+	ID     string          `json:"id"`
+	Params json.RawMessage `json:"params"`
 }
 
 type TransitionInput struct {
@@ -98,15 +98,18 @@ func (e *Engine) deny(contractID, transition string, serr *Error) error {
 }
 
 // Create validates params, builds the schedule and persists the contract
-// in state PROMISE. No ledger posting happens here (spec §5.1).
+// in its initial state. No ledger posting happens here (spec §5.1). It routes
+// generically through the kind registry: the engine holds no contract-specific
+// knowledge.
 func (e *Engine) Create(req CreateRequest) (Contract, []Installment, error) {
 	var c Contract
 
 	if req.Type == "" {
 		req.Type = TypeMurabaha
 	}
-	if req.Type != TypeMurabaha {
-		return c, nil, newError(ErrInvalidParams, "type must be \"murabaha\" in v1")
+	kind, ok := kindFor(req.Type)
+	if !ok {
+		return c, nil, newError(ErrInvalidParams, "unknown contract type "+req.Type)
 	}
 
 	if req.ID == "" {
@@ -116,7 +119,11 @@ func (e *Engine) Create(req CreateRequest) (Contract, []Installment, error) {
 		return c, nil, newError(ErrInvalidParams, "id must match ^[a-z][a-z0-9_]{3,40}$")
 	}
 
-	if err := req.Params.Validate(); err != nil {
+	p, err := kind.DecodeParams(req.Params)
+	if err != nil {
+		return c, nil, err
+	}
+	if err := kind.ValidateParams(p); err != nil {
 		return c, nil, err
 	}
 
@@ -124,25 +131,20 @@ func (e *Engine) Create(req CreateRequest) (Contract, []Installment, error) {
 		return c, nil, &Error{Code: ErrDuplicate, Message: "contract already exists", ContractID: req.ID}
 	}
 
-	schedule, err := BuildSchedule(
-		req.Params.Cost.Amount,
-		req.Params.Markup.Amount,
-		req.Params.Installments,
-		req.Params.FirstDue,
-		req.Params.PeriodDays,
-	)
+	schedule, err := kind.BuildSchedule(p)
 	if err != nil {
 		return c, nil, newError(ErrInvalidParams, err.Error())
 	}
 
-	raw, _ := json.Marshal(req.Params)
+	// Re-marshal the decoded+defaulted params so the stored form is canonical.
+	raw, _ := json.Marshal(p)
 	ts := now()
 	c = Contract{
 		ID:              req.ID,
-		Type:            TypeMurabaha,
-		State:           StatePromise,
+		Type:            req.Type,
+		State:           kindInitialState(req.Type),
 		Params:          raw,
-		TemplateVersion: TemplateVersionMurabaha,
+		TemplateVersion: templateVersionFor(req.Type),
 		CreatedAt:       ts,
 		UpdatedAt:       ts,
 	}
@@ -157,14 +159,13 @@ func (e *Engine) Create(req CreateRequest) (Contract, []Installment, error) {
 		return c, nil, err
 	}
 
-	payload, _ := json.Marshal(req.Params)
 	if _, err := e.appendAudit(AuditEvent{
 		ContractID:  c.ID,
 		Event:       EventCreated,
 		Decision:    DecisionAllowed,
-		StandardRef: RefSS8,
+		StandardRef: createStandardRef(req.Type),
 		TxID:        -1,
-		Payload:     string(payload),
+		Payload:     string(raw),
 		CreatedAt:   ts,
 	}); err != nil {
 		return c, nil, err
@@ -174,8 +175,9 @@ func (e *Engine) Create(req CreateRequest) (Contract, []Installment, error) {
 }
 
 // Transition executes one FSM transition following the strict order of
-// spec §9: lock, load, FSM check, preconditions, postings, commit,
-// post-commit bookkeeping, audit.
+// spec §9: lock, load, sharia gate, FSM check, preconditions, build plan,
+// commit, post-commit bookkeeping, audit. The engine holds no contract-specific
+// knowledge: it routes through the kind registry by Contract.Type.
 func (e *Engine) Transition(contractID, name string, input TransitionInput) (TransitionResult, error) {
 	var res TransitionResult
 
@@ -188,484 +190,117 @@ func (e *Engine) Transition(contractID, name string, input TransitionInput) (Tra
 		return res, &Error{Code: ErrNotFound, Message: "contract not found", ContractID: contractID}
 	}
 
-	// Spec §5.3 orders the sell preconditions: 1. qabd (I-1), 2. state.
-	// Selling a non-possessed asset is a Sharia violation, not a mere
-	// sequencing error — even from PROMISE.
-	if name == TransitionSell {
-		inventory, err := e.ledger.GetAccount(InventoryAccount(c.ID))
-		if err != nil {
-			return res, err
+	kind, ok := kindFor(c.Type)
+	if !ok {
+		return res, &Error{Code: ErrInvalidParams, Message: "unknown contract type " + c.Type, ContractID: contractID}
+	}
+	p, err := kind.DecodeParams(c.Params)
+	if err != nil {
+		return res, err
+	}
+	ev := Event{Name: name, Input: input}
+
+	// 1. Sharia gate — runs BEFORE the FSM so an ownership/possession
+	// violation takes priority over a mere sequencing error (even from PROMISE).
+	if gErr := kind.ShariaGate(e.ledger, c, p, ev); gErr != nil {
+		if se, ok := gErr.(*Error); ok {
+			return res, e.deny(contractID, name, se)
 		}
-		var sellCheckP MurabahaParams
-		_ = json.Unmarshal(c.Params, &sellCheckP)
-		if inventory.Balances[sellCheckP.AssetCode] < 1 {
-			return res, e.deny(contractID, name, &Error{
-				Code:        ErrShariaViolation,
-				Message:     "sale of non-possessed asset",
-				StandardRef: RefSS8,
-			})
-		}
+		return res, gErr
 	}
 
-	if !TransitionAllowed(c.State, name) {
+	// 2. FSM check
+	if !contains(kind.AllowedTransitions(c.State), name) {
 		return res, e.deny(contractID, name, &Error{
 			Code:    ErrInvalidTransition,
 			Message: fmt.Sprintf("transition %q is not allowed from state %s", name, c.State),
 		})
 	}
 
-	switch name {
-	case TransitionAcquire:
-		return e.acquire(c)
-	case TransitionSell:
-		return e.sell(c)
-	case TransitionPayInstallment:
-		return e.payInstallment(c, input)
-	case TransitionEarlySettle:
-		return e.earlySettle(c, input)
-	case TransitionLatePenalty:
-		return e.latePenalty(c, input)
-	case TransitionCancel:
-		return e.cancel(c)
+	// 3. Load schedule + preconditions
+	sched, err := e.store.GetSchedule(contractID)
+	if err != nil {
+		return res, err
+	}
+	if pErr := kind.Preconditions(e.ledger, c, p, sched, ev); pErr != nil {
+		if se, ok := pErr.(*Error); ok {
+			return res, e.deny(contractID, name, se)
+		}
+		return res, pErr
 	}
 
-	return res, e.deny(contractID, name, &Error{
-		Code:    ErrInvalidTransition,
-		Message: fmt.Sprintf("unknown transition %q", name),
-	})
+	// 4. Build the transition plan
+	plan, err := kind.BuildPlan(e.ledger, c, p, sched, ev)
+	if err != nil {
+		if se, ok := err.(*Error); ok {
+			return res, e.deny(contractID, name, se)
+		}
+		return res, err
+	}
+
+	// 5. Commit + generic post-commit bookkeeping
+	return e.applyPlan(c, name, plan)
 }
 
-func (e *Engine) acquire(c Contract) (TransitionResult, error) {
-	var res TransitionResult
-	var p MurabahaParams
-	_ = json.Unmarshal(c.Params, &p)
-
-	treasury, err := e.ledger.GetAccount(p.BankTreasury)
-	if err != nil {
-		return res, err
+func contains(xs []string, x string) bool {
+	for _, v := range xs {
+		if v == x {
+			return true
+		}
 	}
-	if treasury.Balances[p.Cost.Asset] < p.Cost.Amount {
-		return res, e.deny(c.ID, TransitionAcquire, &Error{
-			Code:    ErrPrecondition,
-			Message: "insufficient treasury balance to acquire the asset",
-		})
-	}
-
-	payload, _ := json.Marshal(map[string]interface{}{
-		"cost": p.Cost, "supplier": p.Supplier,
-	})
-	return e.commitTransition(c, TransitionAcquire, commitSpec{
-		postings:  AcquirePostings(c.ID, p),
-		reference: c.ID + ":acquire",
-		newState:  StateAcquired,
-		ref:       RefSS8,
-		payload:   string(payload),
-	})
+	return false
 }
 
-func (e *Engine) sell(c Contract) (TransitionResult, error) {
+// applyPlan commits exactly ONE ledger transaction (invariant I-7) when the
+// plan carries postings, then runs the generic, contract-agnostic post-commit
+// bookkeeping: transaction metadata, installment marks, contract state, the
+// main audit event and any extra audit events. A plan with no postings (e.g.
+// cancel from PROMISE) skips the commit but still records state + audit.
+func (e *Engine) applyPlan(c Contract, name string, plan TransitionPlan) (TransitionResult, error) {
 	var res TransitionResult
-	var p MurabahaParams
-	_ = json.Unmarshal(c.Params, &p)
-
-	// Invariant I-1 (qabd): the bank must possess the asset before selling.
-	inventory, err := e.ledger.GetAccount(InventoryAccount(c.ID))
-	if err != nil {
-		return res, err
-	}
-	if inventory.Balances[p.AssetCode] < 1 {
-		return res, e.deny(c.ID, TransitionSell, &Error{
-			Code:        ErrShariaViolation,
-			Message:     "sale of non-possessed asset",
-			StandardRef: RefSS8,
-		})
-	}
-
-	payload, _ := json.Marshal(map[string]interface{}{
-		"total":  p.Cost.Amount + p.Markup.Amount,
-		"markup": p.Markup,
-		"client": p.Client,
-	})
-	return e.commitTransition(c, TransitionSell, commitSpec{
-		postings:  SellPostings(c.ID, p),
-		reference: c.ID + ":sell",
-		newState:  StateSold,
-		ref:       RefSS8,
-		payload:   string(payload),
-	})
-}
-
-func (e *Engine) payInstallment(c Contract, input TransitionInput) (TransitionResult, error) {
-	var res TransitionResult
-	var p MurabahaParams
-	_ = json.Unmarshal(c.Params, &p)
-
-	schedule, err := e.store.GetSchedule(c.ID)
-	if err != nil {
-		return res, err
-	}
-
-	var target *Installment
-	if input.Seq > 0 {
-		for i := range schedule {
-			if schedule[i].Seq == input.Seq {
-				target = &schedule[i]
-				break
-			}
-		}
-		if target == nil {
-			return res, e.deny(c.ID, TransitionPayInstallment, &Error{
-				Code:    ErrNotFound,
-				Message: fmt.Sprintf("installment %d does not exist", input.Seq),
-			})
-		}
-	} else {
-		for i := range schedule {
-			if schedule[i].Status == StatusPending || schedule[i].Status == StatusOverdue {
-				target = &schedule[i]
-				break
-			}
-		}
-		if target == nil {
-			return res, e.deny(c.ID, TransitionPayInstallment, &Error{
-				Code:    ErrPrecondition,
-				Message: "no unpaid installment left",
-			})
-		}
-	}
-
-	// Replaying the payment of an already-paid installment is the
-	// idempotence case (scenario E): same reference, clean failure.
-	if target.Status == StatusPaid {
-		return res, e.deny(c.ID, TransitionPayInstallment, &Error{
-			Code:    ErrDuplicate,
-			Message: fmt.Sprintf("installment %d is already paid", target.Seq),
-		})
-	}
-	if target.Status == StatusSettledEarly {
-		return res, e.deny(c.ID, TransitionPayInstallment, &Error{
-			Code:    ErrPrecondition,
-			Message: fmt.Sprintf("installment %d was settled early", target.Seq),
-		})
-	}
-
-	client, err := e.ledger.GetAccount(p.Client)
-	if err != nil {
-		return res, err
-	}
-	if client.Balances[p.Cost.Asset] < target.Amount {
-		return res, e.deny(c.ID, TransitionPayInstallment, &Error{
-			Code:    ErrPrecondition,
-			Message: "insufficient client balance",
-		})
-	}
-
-	payload, _ := json.Marshal(map[string]interface{}{
-		"seq": target.Seq, "amount": target.Amount, "profit_part": target.ProfitPart,
-	})
-	res, err = e.commitTransition(c, TransitionPayInstallment, commitSpec{
-		postings:  PayInstallmentPostings(c.ID, p, *target),
-		reference: fmt.Sprintf("%s:pay:%d", c.ID, target.Seq),
-		newState:  StateSold,
-		ref:       RefFAS28,
-		payload:   string(payload),
-		// state update deferred: it depends on whether this was the last one
-		skipStateUpdate: true,
-	})
-	if err != nil {
-		return res, err
-	}
-
-	if err := e.store.MarkInstallment(c.ID, target.Seq, StatusPaid, res.TxID, now()); err != nil {
-		return res, err
-	}
-
-	// settle if every installment is now paid or settled early
-	settled := true
-	for _, it := range schedule {
-		if it.Seq == target.Seq {
-			continue
-		}
-		if it.Status == StatusPending || it.Status == StatusOverdue {
-			settled = false
-			break
-		}
-	}
-
-	newState := StateSold
-	if settled {
-		newState = StateSettled
-		if _, err := e.appendAudit(AuditEvent{
-			ContractID:  c.ID,
-			Event:       EventSettled,
-			Decision:    DecisionAllowed,
-			StandardRef: RefFAS28,
-			TxID:        res.TxID,
-			Payload:     "{}",
-		}); err != nil {
-			return res, err
-		}
-	}
-	if err := e.store.UpdateContractState(c.ID, newState, now()); err != nil {
-		return res, err
-	}
-
-	res.NewState = newState
-	res.Contract.State = newState
-	return res, nil
-}
-
-func (e *Engine) earlySettle(c Contract, input TransitionInput) (TransitionResult, error) {
-	var res TransitionResult
-	var p MurabahaParams
-	_ = json.Unmarshal(c.Params, &p)
-
-	schedule, err := e.store.GetSchedule(c.ID)
-	if err != nil {
-		return res, err
-	}
-
-	var restTotal, restProfit int64
-	rest := []Installment{}
-	for _, it := range schedule {
-		if it.Status == StatusPending || it.Status == StatusOverdue {
-			restTotal += it.Amount
-			restProfit += it.ProfitPart
-			rest = append(rest, it)
-		}
-	}
-	if len(rest) == 0 {
-		return res, e.deny(c.ID, TransitionEarlySettle, &Error{
-			Code:    ErrPrecondition,
-			Message: "no unpaid installment left",
-		})
-	}
-
-	// ibra': default is a full rebate of the unearned profit — at the
-	// bank's discretion, never stipulated in advance as an obligation.
-	rebate := restProfit
-	if input.Rebate != nil {
-		rebate = *input.Rebate
-	}
-	if rebate < 0 || rebate > restProfit {
-		return res, e.deny(c.ID, TransitionEarlySettle, &Error{
-			Code:    ErrInvalidParams,
-			Message: fmt.Sprintf("rebate must be between 0 and the remaining profit (%d)", restProfit),
-		})
-	}
-
-	cashDue := restTotal - rebate
-	client, err := e.ledger.GetAccount(p.Client)
-	if err != nil {
-		return res, err
-	}
-	if client.Balances[p.Cost.Asset] < cashDue {
-		return res, e.deny(c.ID, TransitionEarlySettle, &Error{
-			Code:    ErrPrecondition,
-			Message: "insufficient client balance",
-		})
-	}
-
-	payload, _ := json.Marshal(map[string]int64{
-		"rest_total": restTotal, "rest_profit": restProfit, "rebate": rebate, "cash_due": cashDue,
-	})
-	res, err = e.commitTransition(c, TransitionEarlySettle, commitSpec{
-		postings:        EarlySettlePostings(c.ID, p, restTotal, restProfit, rebate),
-		reference:       c.ID + ":early_settle",
-		newState:        StateSettled,
-		ref:             RefFAS28,
-		payload:         string(payload),
-		skipStateUpdate: true,
-	})
-	if err != nil {
-		return res, err
-	}
-
 	ts := now()
-	for _, it := range rest {
-		if err := e.store.MarkInstallment(c.ID, it.Seq, StatusSettledEarly, res.TxID, ts); err != nil {
-			return res, err
-		}
-	}
-	if _, err := e.appendAudit(AuditEvent{
-		ContractID:  c.ID,
-		Event:       EventSettled,
-		Decision:    DecisionAllowed,
-		StandardRef: RefFAS28,
-		TxID:        res.TxID,
-		Payload:     string(payload),
-	}); err != nil {
-		return res, err
-	}
-	if err := e.store.UpdateContractState(c.ID, StateSettled, ts); err != nil {
-		return res, err
-	}
+	txID := int64(-1)
 
-	res.NewState = StateSettled
-	res.Contract.State = StateSettled
-	return res, nil
-}
-
-func (e *Engine) latePenalty(c Contract, input TransitionInput) (TransitionResult, error) {
-	var res TransitionResult
-	var p MurabahaParams
-	_ = json.Unmarshal(c.Params, &p)
-
-	if input.Amount <= 0 {
-		return res, e.deny(c.ID, TransitionLatePenalty, &Error{
-			Code:    ErrInvalidParams,
-			Message: "penalty amount must be > 0",
-		})
-	}
-
-	destination := input.Destination
-	if destination == "" {
-		destination = DefaultCharityPool
-	}
-
-	// Invariant I-3: penalties may only ever flow to charity (AAOIFI SS 3).
-	postings, err := PenaltyPostings(c.ID, p, input.Amount, destination)
-	if err != nil {
-		return res, e.deny(c.ID, TransitionLatePenalty, err.(*Error))
-	}
-
-	if input.Seq > 0 {
-		schedule, err := e.store.GetSchedule(c.ID)
+	if len(plan.Postings) > 0 {
+		tx := core.Transaction{Postings: plan.Postings, Reference: plan.Reference}
+		committed, err := e.ledger.Commit([]core.Transaction{tx})
 		if err != nil {
+			if isDuplicateErr(err) {
+				return res, e.deny(c.ID, name, &Error{
+					Code:    ErrDuplicate,
+					Message: fmt.Sprintf("transition already committed (reference %q)", plan.Reference),
+				})
+			}
+			if strings.HasPrefix(err.Error(), "balance.insufficient") {
+				return res, e.deny(c.ID, name, &Error{
+					Code:    ErrPrecondition,
+					Message: err.Error(),
+				})
+			}
 			return res, err
 		}
-		found := false
-		for _, it := range schedule {
-			if it.Seq == input.Seq {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return res, e.deny(c.ID, TransitionLatePenalty, &Error{
-				Code:    ErrNotFound,
-				Message: fmt.Sprintf("installment %d does not exist", input.Seq),
-			})
-		}
-	}
+		txID = committed[0].ID
 
-	client, err := e.ledger.GetAccount(p.Client)
-	if err != nil {
-		return res, err
-	}
-	if client.Balances[p.Cost.Asset] < input.Amount {
-		return res, e.deny(c.ID, TransitionLatePenalty, &Error{
-			Code:    ErrPrecondition,
-			Message: "insufficient client balance",
+		e.ledger.SaveMeta("transaction", fmt.Sprint(txID), core.Metadata{
+			"sharia/contract": json.RawMessage(fmt.Sprintf("%q", c.ID)),
+			"sharia/event":    json.RawMessage(fmt.Sprintf("%q", name)),
+			"sharia/ref":      json.RawMessage(fmt.Sprintf("%q", plan.StandardRef)),
 		})
 	}
 
-	reference := c.ID + ":late_penalty"
-	if input.Seq > 0 {
-		reference = fmt.Sprintf("%s:late_penalty:%d", c.ID, input.Seq)
-	}
-
-	payload, _ := json.Marshal(map[string]interface{}{
-		"seq": input.Seq, "amount": input.Amount, "destination": destination,
-	})
-	return e.commitTransition(c, TransitionLatePenalty, commitSpec{
-		postings:  postings,
-		reference: reference,
-		newState:  c.State, // a penalty never changes the contract state
-		ref:       RefSS3,
-		payload:   string(payload),
-		event:     EventPenalty,
-	})
-}
-
-func (e *Engine) cancel(c Contract) (TransitionResult, error) {
-	var cancelP MurabahaParams
-	_ = json.Unmarshal(c.Params, &cancelP)
-	postings := CancelPostings(c.ID, cancelP, c.State)
-
-	if len(postings) == 0 {
-		// from PROMISE: nothing has moved, no ledger transaction
-		ts := now()
-		if err := e.store.UpdateContractState(c.ID, StateCancelled, ts); err != nil {
-			return TransitionResult{}, err
-		}
-		if _, err := e.appendAudit(AuditEvent{
-			ContractID: c.ID,
-			Event:      EventTransition,
-			Transition: TransitionCancel,
-			Decision:   DecisionAllowed,
-			TxID:       -1,
-			Payload:    "{}",
-		}); err != nil {
-			return TransitionResult{}, err
-		}
-		c.State = StateCancelled
-		c.UpdatedAt = ts
-		return TransitionResult{Contract: c, Transition: TransitionCancel, TxID: -1, NewState: StateCancelled}, nil
-	}
-
-	return e.commitTransition(c, TransitionCancel, commitSpec{
-		postings:  postings,
-		reference: c.ID + ":cancel",
-		newState:  StateCancelled,
-		payload:   "{}",
-	})
-}
-
-type commitSpec struct {
-	postings        []core.Posting
-	reference       string
-	newState        string
-	ref             string // AAOIFI standard reference
-	payload         string
-	event           string // defaults to EventTransition
-	skipStateUpdate bool
-}
-
-// commitTransition commits exactly ONE ledger transaction (invariant I-7),
-// then runs the post-commit bookkeeping: transaction metadata, contract
-// state, audit. If the process crashes between commit and bookkeeping, the
-// unique Reference allows reconciliation on restart — kept deliberately
-// simple in v1, no extra mechanism.
-func (e *Engine) commitTransition(c Contract, name string, spec commitSpec) (TransitionResult, error) {
-	var res TransitionResult
-
-	tx := core.Transaction{
-		Postings:  spec.postings,
-		Reference: spec.reference,
-	}
-	committed, err := e.ledger.Commit([]core.Transaction{tx})
-	if err != nil {
-		if isDuplicateErr(err) {
-			return res, e.deny(c.ID, name, &Error{
-				Code:    ErrDuplicate,
-				Message: fmt.Sprintf("transition already committed (reference %q)", spec.reference),
-			})
-		}
-		if strings.HasPrefix(err.Error(), "balance.insufficient") {
-			return res, e.deny(c.ID, name, &Error{
-				Code:    ErrPrecondition,
-				Message: err.Error(),
-			})
-		}
-		return res, err
-	}
-	txID := committed[0].ID
-
-	e.ledger.SaveMeta("transaction", fmt.Sprint(txID), core.Metadata{
-		"sharia/contract": json.RawMessage(fmt.Sprintf("%q", c.ID)),
-		"sharia/event":    json.RawMessage(fmt.Sprintf("%q", name)),
-		"sharia/ref":      json.RawMessage(fmt.Sprintf("%q", spec.ref)),
-	})
-
-	ts := now()
-	if !spec.skipStateUpdate && spec.newState != c.State {
-		if err := e.store.UpdateContractState(c.ID, spec.newState, ts); err != nil {
+	for _, m := range plan.Marks {
+		if err := e.store.MarkInstallment(c.ID, m.Seq, m.Status, txID, ts); err != nil {
 			return res, err
 		}
 	}
 
-	event := spec.event
+	if plan.NewState != "" && plan.NewState != c.State {
+		if err := e.store.UpdateContractState(c.ID, plan.NewState, ts); err != nil {
+			return res, err
+		}
+	}
+
+	event := plan.Event
 	if event == "" {
 		event = EventTransition
 	}
@@ -674,21 +309,28 @@ func (e *Engine) commitTransition(c Contract, name string, spec commitSpec) (Tra
 		Event:       event,
 		Transition:  name,
 		Decision:    DecisionAllowed,
-		StandardRef: spec.ref,
+		StandardRef: plan.StandardRef,
 		TxID:        txID,
-		Payload:     spec.payload,
+		Payload:     plan.Payload,
 	}); err != nil {
 		return res, err
 	}
+	for _, ex := range plan.ExtraAudit {
+		ex.ContractID = c.ID
+		// Extra audit events (e.g. the settled event) are tied to the same
+		// committed transaction; mirror the original engine's res.TxID.
+		ex.TxID = txID
+		if _, err := e.appendAudit(ex); err != nil {
+			return res, err
+		}
+	}
 
-	c.State = spec.newState
-	c.UpdatedAt = ts
-	return TransitionResult{
-		Contract:   c,
-		Transition: name,
-		TxID:       txID,
-		NewState:   spec.newState,
-	}, nil
+	newState := plan.NewState
+	if newState == "" {
+		newState = c.State
+	}
+	c.State, c.UpdatedAt = newState, ts
+	return TransitionResult{Contract: c, Transition: name, TxID: txID, NewState: newState}, nil
 }
 
 // VerifyAudit returns the full audit trail and re-verifies the hash chain.
