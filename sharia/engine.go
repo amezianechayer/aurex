@@ -135,12 +135,13 @@ func (e *Engine) Create(req CreateRequest) (Contract, []Installment, error) {
 		return c, nil, newError(ErrInvalidParams, err.Error())
 	}
 
+	raw, _ := json.Marshal(req.Params)
 	ts := now()
 	c = Contract{
 		ID:              req.ID,
 		Type:            TypeMurabaha,
 		State:           StatePromise,
-		Params:          req.Params,
+		Params:          raw,
 		TemplateVersion: TemplateVersionMurabaha,
 		CreatedAt:       ts,
 		UpdatedAt:       ts,
@@ -195,7 +196,9 @@ func (e *Engine) Transition(contractID, name string, input TransitionInput) (Tra
 		if err != nil {
 			return res, err
 		}
-		if inventory.Balances[c.Params.AssetCode] < 1 {
+		var sellCheckP MurabahaParams
+		_ = json.Unmarshal(c.Params, &sellCheckP)
+		if inventory.Balances[sellCheckP.AssetCode] < 1 {
 			return res, e.deny(contractID, name, &Error{
 				Code:        ErrShariaViolation,
 				Message:     "sale of non-possessed asset",
@@ -234,7 +237,8 @@ func (e *Engine) Transition(contractID, name string, input TransitionInput) (Tra
 
 func (e *Engine) acquire(c Contract) (TransitionResult, error) {
 	var res TransitionResult
-	p := c.Params
+	var p MurabahaParams
+	_ = json.Unmarshal(c.Params, &p)
 
 	treasury, err := e.ledger.GetAccount(p.BankTreasury)
 	if err != nil {
@@ -261,7 +265,8 @@ func (e *Engine) acquire(c Contract) (TransitionResult, error) {
 
 func (e *Engine) sell(c Contract) (TransitionResult, error) {
 	var res TransitionResult
-	p := c.Params
+	var p MurabahaParams
+	_ = json.Unmarshal(c.Params, &p)
 
 	// Invariant I-1 (qabd): the bank must possess the asset before selling.
 	inventory, err := e.ledger.GetAccount(InventoryAccount(c.ID))
@@ -292,7 +297,8 @@ func (e *Engine) sell(c Contract) (TransitionResult, error) {
 
 func (e *Engine) payInstallment(c Contract, input TransitionInput) (TransitionResult, error) {
 	var res TransitionResult
-	p := c.Params
+	var p MurabahaParams
+	_ = json.Unmarshal(c.Params, &p)
 
 	schedule, err := e.store.GetSchedule(c.ID)
 	if err != nil {
@@ -411,7 +417,8 @@ func (e *Engine) payInstallment(c Contract, input TransitionInput) (TransitionRe
 
 func (e *Engine) earlySettle(c Contract, input TransitionInput) (TransitionResult, error) {
 	var res TransitionResult
-	p := c.Params
+	var p MurabahaParams
+	_ = json.Unmarshal(c.Params, &p)
 
 	schedule, err := e.store.GetSchedule(c.ID)
 	if err != nil {
@@ -501,7 +508,8 @@ func (e *Engine) earlySettle(c Contract, input TransitionInput) (TransitionResul
 
 func (e *Engine) latePenalty(c Contract, input TransitionInput) (TransitionResult, error) {
 	var res TransitionResult
-	p := c.Params
+	var p MurabahaParams
+	_ = json.Unmarshal(c.Params, &p)
 
 	if input.Amount <= 0 {
 		return res, e.deny(c.ID, TransitionLatePenalty, &Error{
@@ -571,7 +579,9 @@ func (e *Engine) latePenalty(c Contract, input TransitionInput) (TransitionResul
 }
 
 func (e *Engine) cancel(c Contract) (TransitionResult, error) {
-	postings := CancelPostings(c.ID, c.Params, c.State)
+	var cancelP MurabahaParams
+	_ = json.Unmarshal(c.Params, &cancelP)
+	postings := CancelPostings(c.ID, cancelP, c.State)
 
 	if len(postings) == 0 {
 		// from PROMISE: nothing has moved, no ledger transaction

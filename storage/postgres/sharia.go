@@ -54,9 +54,9 @@ func (s *PGStore) repairLegacyShariaTables() error {
 }
 
 func (s *PGStore) SaveContract(c sharia.Contract) error {
-	params, err := json.Marshal(c.Params)
-	if err != nil {
-		return err
+	params := []byte(c.Params)
+	if len(params) == 0 {
+		params = []byte("{}")
 	}
 
 	ib := sqlbuilder.NewInsertBuilder()
@@ -69,7 +69,7 @@ func (s *PGStore) SaveContract(c sharia.Contract) error {
 		fmt.Println(sqlq, args)
 	}
 
-	_, err = s.Conn().Exec(context.Background(), sqlq, args...)
+	_, err := s.Conn().Exec(context.Background(), sqlq, args...)
 	return err
 }
 
@@ -104,8 +104,8 @@ func (s *PGStore) GetContract(id string) (sharia.Contract, error) {
 		return c, err
 	}
 
-	err = json.Unmarshal([]byte(params), &c.Params)
-	return c, err
+	c.Params = json.RawMessage(params)
+	return c, nil
 }
 
 func (s *PGStore) ListContracts(limit, offset int) ([]sharia.Contract, error) {
@@ -130,9 +130,7 @@ func (s *PGStore) ListContracts(limit, offset int) ([]sharia.Contract, error) {
 		if err := rows.Scan(&c.ID, &c.Type, &c.State, &params, &c.TemplateVersion, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, err
 		}
-		if err := json.Unmarshal([]byte(params), &c.Params); err != nil {
-			return nil, err
-		}
+		c.Params = json.RawMessage(params)
 		contracts = append(contracts, c)
 	}
 	return contracts, nil

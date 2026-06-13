@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -34,21 +35,22 @@ func withStore(t *testing.T, f func(s *SQLiteStore)) {
 }
 
 func testContract(id string) sharia.Contract {
+	raw, _ := json.Marshal(sharia.MurabahaParams{
+		AssetCode:    "VHCL42A",
+		Cost:         sharia.Monetary{Asset: "SAR2", Amount: 10000000},
+		Markup:       sharia.Monetary{Asset: "SAR2", Amount: 1000000},
+		Client:       "@client:ameziane",
+		Supplier:     "@supplier:toyota",
+		BankTreasury: "@bank:treasury",
+		Installments: 24,
+		FirstDue:     "2026-07-01T00:00:00Z",
+		PeriodDays:   30,
+	})
 	return sharia.Contract{
-		ID:    id,
-		Type:  sharia.TypeMurabaha,
-		State: sharia.StatePromise,
-		Params: sharia.MurabahaParams{
-			AssetCode:    "VHCL42A",
-			Cost:         sharia.Monetary{Asset: "SAR2", Amount: 10000000},
-			Markup:       sharia.Monetary{Asset: "SAR2", Amount: 1000000},
-			Client:       "@client:ameziane",
-			Supplier:     "@supplier:toyota",
-			BankTreasury: "@bank:treasury",
-			Installments: 24,
-			FirstDue:     "2026-07-01T00:00:00Z",
-			PeriodDays:   30,
-		},
+		ID:              id,
+		Type:            sharia.TypeMurabaha,
+		State:           sharia.StatePromise,
+		Params:          raw,
 		TemplateVersion: sharia.TemplateVersionMurabaha,
 		CreatedAt:       "2026-06-10T00:00:00Z",
 		UpdatedAt:       "2026-06-10T00:00:00Z",
@@ -123,8 +125,12 @@ func TestContractRoundTrip(t *testing.T) {
 		if got.ID != c.ID || got.State != sharia.StatePromise || got.Type != sharia.TypeMurabaha {
 			t.Fatalf("contract mismatch: %+v", got)
 		}
-		if got.Params.Cost.Amount != 10000000 || got.Params.Client != "@client:ameziane" {
-			t.Fatalf("params mismatch: %+v", got.Params)
+		var gotP sharia.MurabahaParams
+		if err := json.Unmarshal(got.Params, &gotP); err != nil {
+			t.Fatalf("params unmarshal: %v", err)
+		}
+		if gotP.Cost.Amount != 10000000 || gotP.Client != "@client:ameziane" {
+			t.Fatalf("params mismatch: %+v", gotP)
 		}
 
 		// duplicate id must fail

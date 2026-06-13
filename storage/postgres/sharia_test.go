@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -34,21 +35,22 @@ func withPGStore(t *testing.T, f func(s *PGStore)) {
 }
 
 func pgTestContract(id string) sharia.Contract {
+	raw, _ := json.Marshal(sharia.MurabahaParams{
+		AssetCode:    "VHCL42A",
+		Cost:         sharia.Monetary{Asset: "SAR2", Amount: 10000000},
+		Markup:       sharia.Monetary{Asset: "SAR2", Amount: 1000000},
+		Client:       "@client:pg",
+		Supplier:     "@supplier:pg",
+		BankTreasury: "@bank:treasury",
+		Installments: 24,
+		FirstDue:     "2026-07-01T00:00:00Z",
+		PeriodDays:   30,
+	})
 	return sharia.Contract{
-		ID:    id,
-		Type:  sharia.TypeMurabaha,
-		State: sharia.StatePromise,
-		Params: sharia.MurabahaParams{
-			AssetCode:    "VHCL42A",
-			Cost:         sharia.Monetary{Asset: "SAR2", Amount: 10000000},
-			Markup:       sharia.Monetary{Asset: "SAR2", Amount: 1000000},
-			Client:       "@client:pg",
-			Supplier:     "@supplier:pg",
-			BankTreasury: "@bank:treasury",
-			Installments: 24,
-			FirstDue:     "2026-07-01T00:00:00Z",
-			PeriodDays:   30,
-		},
+		ID:              id,
+		Type:            sharia.TypeMurabaha,
+		State:           sharia.StatePromise,
+		Params:          raw,
 		TemplateVersion: sharia.TemplateVersionMurabaha,
 		CreatedAt:       "2026-06-10T00:00:00Z",
 		UpdatedAt:       "2026-06-10T00:00:00Z",
@@ -61,8 +63,12 @@ func TestPGContractRoundTrip(t *testing.T) {
 			t.Fatal(err)
 		}
 		got, err := s.GetContract("mur_pg_rt")
-		if err != nil || got.Params.Cost.Amount != 10000000 || got.State != sharia.StatePromise {
+		if err != nil || got.State != sharia.StatePromise {
 			t.Fatalf("got %+v err %v", got, err)
+		}
+		var gotP sharia.MurabahaParams
+		if err := json.Unmarshal(got.Params, &gotP); err != nil || gotP.Cost.Amount != 10000000 {
+			t.Fatalf("params mismatch: %+v err %v", gotP, err)
 		}
 		if err := s.SaveContract(pgTestContract("mur_pg_rt")); err == nil {
 			t.Fatal("duplicate id must fail")

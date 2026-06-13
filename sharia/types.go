@@ -2,6 +2,7 @@ package sharia
 
 import (
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"time"
@@ -105,13 +106,13 @@ func (p *MurabahaParams) Validate() error {
 }
 
 type Contract struct {
-	ID              string         `json:"id"`
-	Type            string         `json:"type"`
-	State           string         `json:"state"`
-	Params          MurabahaParams `json:"params"`
-	TemplateVersion string         `json:"template_version"`
-	CreatedAt       string         `json:"created_at"`
-	UpdatedAt       string         `json:"updated_at"`
+	ID              string          `json:"id"`
+	Type            string          `json:"type"`
+	State           string          `json:"state"`
+	Params          json.RawMessage `json:"params"`
+	TemplateVersion string          `json:"template_version"`
+	CreatedAt       string          `json:"created_at"`
+	UpdatedAt       string          `json:"updated_at"`
 }
 
 type Installment struct {
