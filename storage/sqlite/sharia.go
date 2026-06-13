@@ -155,8 +155,8 @@ func (s *SQLiteStore) SaveSchedule(contractID string, items []sharia.Installment
 	for _, it := range items {
 		ib := sqlbuilder.NewInsertBuilder()
 		ib.InsertInto("sharia_schedule")
-		ib.Cols("contract_id", "seq", "due_date", "amount", "principal_part", "profit_part", "status", "paid_tx_id", "paid_at")
-		ib.Values(contractID, it.Seq, it.DueDate, it.Amount, it.PrincipalPart, it.ProfitPart, it.Status, it.PaidTxID, it.PaidAt)
+		ib.Cols("contract_id", "seq", "due_date", "amount", "principal_part", "profit_part", "depreciation_part", "status", "paid_tx_id", "paid_at")
+		ib.Values(contractID, it.Seq, it.DueDate, it.Amount, it.PrincipalPart, it.ProfitPart, it.DepreciationPart, it.Status, it.PaidTxID, it.PaidAt)
 
 		sqlq, args := ib.BuildWithFlavor(sqlbuilder.SQLite)
 		if _, err := tx.Exec(sqlq, args...); err != nil {
@@ -169,7 +169,7 @@ func (s *SQLiteStore) SaveSchedule(contractID string, items []sharia.Installment
 
 func (s *SQLiteStore) GetSchedule(contractID string) ([]sharia.Installment, error) {
 	sb := sqlbuilder.NewSelectBuilder()
-	sb.Select("seq", "due_date", "amount", "principal_part", "profit_part", "status", "paid_tx_id", "paid_at")
+	sb.Select("seq", "due_date", "amount", "principal_part", "profit_part", "depreciation_part", "status", "paid_tx_id", "paid_at")
 	sb.From("sharia_schedule")
 	sb.Where(sb.Equal("contract_id", contractID))
 	sb.OrderBy("seq").Asc()
@@ -184,7 +184,7 @@ func (s *SQLiteStore) GetSchedule(contractID string) ([]sharia.Installment, erro
 	items := []sharia.Installment{}
 	for rows.Next() {
 		var it sharia.Installment
-		if err := rows.Scan(&it.Seq, &it.DueDate, &it.Amount, &it.PrincipalPart, &it.ProfitPart, &it.Status, &it.PaidTxID, &it.PaidAt); err != nil {
+		if err := rows.Scan(&it.Seq, &it.DueDate, &it.Amount, &it.PrincipalPart, &it.ProfitPart, &it.DepreciationPart, &it.Status, &it.PaidTxID, &it.PaidAt); err != nil {
 			return nil, err
 		}
 		items = append(items, it)

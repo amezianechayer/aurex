@@ -85,6 +85,13 @@ func (s *SQLiteStore) Initialize() error {
 		)
 
 		if err != nil {
+			// SQLite does not support ALTER TABLE ... ADD COLUMN IF NOT EXISTS.
+			// On a re-run against an existing DB the column already exists, so
+			// we silently skip that specific benign error.
+			if strings.Contains(statement, "ADD COLUMN") &&
+				strings.Contains(err.Error(), "duplicate column name") {
+				continue
+			}
 			fmt.Println(err)
 			err = fmt.Errorf("failed to run statement %d: %w", i, err)
 			return err

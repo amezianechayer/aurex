@@ -171,6 +171,7 @@ func TestScheduleRoundTrip(t *testing.T) {
 			t.Fatal(err)
 		}
 		items, _ := sharia.BuildSchedule(10000000, 1000000, 24, "2026-07-01T00:00:00Z", 30)
+		items[0].DepreciationPart = 416666
 		if err := s.SaveSchedule("mur_sched", items); err != nil {
 			t.Fatal(err)
 		}
@@ -187,6 +188,9 @@ func TestScheduleRoundTrip(t *testing.T) {
 		}
 		if got[0].Status != sharia.StatusPending || got[0].PaidTxID != -1 {
 			t.Fatalf("expected pending/-1, got %+v", got[0])
+		}
+		if got[0].DepreciationPart != 416666 {
+			t.Fatalf("depreciation_part not persisted: %d", got[0].DepreciationPart)
 		}
 
 		if err := s.MarkInstallment("mur_sched", 1, sharia.StatusPaid, 42, "2026-07-01T10:00:00Z"); err != nil {
