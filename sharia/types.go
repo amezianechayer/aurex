@@ -33,6 +33,7 @@ const (
 	RefSS8   = "AAOIFI-SS-8"
 	RefSS3   = "AAOIFI-SS-3"
 	RefFAS28 = "AAOIFI-FAS-28"
+	RefFAS32 = "AAOIFI-FAS-32 (simplified v1)"
 )
 
 const TemplateVersionMurabaha = "murabaha/1.0.0"

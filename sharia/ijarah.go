@@ -1,6 +1,8 @@
 package sharia
 
 import (
+	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/amezianechayer/corren/core"
@@ -80,4 +82,183 @@ func IjarahCancelPostings(id string, p IjarahParams, fromState string) []core.Po
 		{Source: AssetAccount(id), Destination: UnsoldInventory, Asset: p.AssetCode, Amount: 1},
 		{Source: AssetAccount(id), Destination: core.WORLD, Asset: p.Cost.Asset, Amount: p.Cost.Amount},
 	}
+}
+
+// ---------------------------------------------------------------------------
+// ContractKind implementation
+// ---------------------------------------------------------------------------
+
+type ijarahKind struct{}
+
+func init() { register(ijarahKind{}) }
+
+func (ijarahKind) Type() string { return TypeIjarah }
+
+func (ijarahKind) DecodeParams(raw json.RawMessage) (Params, error) {
+	var p IjarahParams
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return nil, newError(ErrInvalidParams, "invalid ijarah params: "+err.Error())
+	}
+	return p, nil
+}
+
+func (ijarahKind) ValidateParams(p Params) error {
+	ip := p.(IjarahParams)
+	return (&ip).Validate()
+}
+
+func (ijarahKind) BuildSchedule(p Params) ([]Installment, error) {
+	ip := p.(IjarahParams)
+	return BuildIjarahSchedule(ip.Cost.Amount, ip.Rent.Amount, ip.Periods, ip.FirstDue, ip.PeriodDays)
+}
+
+func (ijarahKind) AllowedTransitions(from string) []string {
+	out := []string{}
+	for name := range ijarahFSM[from] {
+		out = append(out, name)
+	}
+	return out
+}
+
+// ShariaGate: leasing a non-owned asset is an SS-9 violation, checked before
+// the FSM (even from a wrong state), mirroring murabaha's qabd gate.
+func (ijarahKind) ShariaGate(led LedgerPort, c Contract, p Params, ev Event) error {
+	if ev.Name != TransitionLease {
+		return nil
+	}
+	ip := p.(IjarahParams)
+	asset, err := led.GetAccount(AssetAccount(c.ID))
+	if err != nil {
+		return err
+	}
+	if asset.Balances[ip.AssetCode] < 1 {
+		return &Error{Code: ErrShariaViolation, Message: "lease of non-owned asset", StandardRef: RefSS9}
+	}
+	return nil
+}
+
+func (ijarahKind) Preconditions(led LedgerPort, c Contract, p Params, sched []Installment, ev Event) error {
+	ip := p.(IjarahParams)
+	switch ev.Name {
+	case TransitionAcquire:
+		t, err := led.GetAccount(ip.BankTreasury)
+		if err != nil {
+			return err
+		}
+		if t.Balances[ip.Cost.Asset] < ip.Cost.Amount {
+			return &Error{Code: ErrPrecondition, Message: "insufficient treasury balance to acquire the asset"}
+		}
+	case TransitionPayRent:
+		inst := ijarahTarget(sched, ev.Input.Seq)
+		if inst == nil {
+			if ev.Input.Seq > 0 {
+				return &Error{Code: ErrNotFound, Message: "installment does not exist"}
+			}
+			return &Error{Code: ErrPrecondition, Message: "no unpaid installment left"}
+		}
+		if inst.Status == StatusPaid {
+			return &Error{Code: ErrDuplicate, Message: "installment already paid"}
+		}
+		cl, err := led.GetAccount(ip.Client)
+		if err != nil {
+			return err
+		}
+		if cl.Balances[ip.Cost.Asset] < inst.Amount {
+			return &Error{Code: ErrPrecondition, Message: "insufficient client balance"}
+		}
+	case TransitionLatePenalty:
+		if ev.Input.Amount <= 0 {
+			return &Error{Code: ErrInvalidParams, Message: "penalty amount must be > 0"}
+		}
+		// charity-gate enforced in BuildPlan via IjarahPenaltyPostings, before commit
+	}
+	return nil
+}
+
+func (ijarahKind) BuildPlan(led LedgerPort, c Contract, p Params, sched []Installment, ev Event) (TransitionPlan, error) {
+	ip := p.(IjarahParams)
+	switch ev.Name {
+	case TransitionAcquire:
+		payload, _ := json.Marshal(map[string]interface{}{"cost": ip.Cost, "supplier": ip.Supplier})
+		return TransitionPlan{
+			Postings: IjarahAcquirePostings(c.ID, ip), Reference: c.ID + ":acquire",
+			NewState: StateAcquired, StandardRef: RefSS9, Payload: string(payload),
+		}, nil
+	case TransitionLease:
+		return TransitionPlan{
+			Postings: IjarahLeasePostings(c.ID, ip), Reference: c.ID + ":lease",
+			NewState: StateLeased, StandardRef: RefSS9, Payload: "{}",
+		}, nil
+	case TransitionPayRent:
+		inst := ijarahTarget(sched, ev.Input.Seq)
+		last := ijarahIsLastUnpaid(sched, inst.Seq)
+		newState := StateLeased
+		var extra []AuditEvent
+		if last {
+			newState = StateCompleted
+			extra = []AuditEvent{{Event: EventSettled, Decision: DecisionAllowed,
+				StandardRef: RefFAS32, TxID: -1, Payload: "{}"}}
+		}
+		payload, _ := json.Marshal(map[string]interface{}{
+			"seq": inst.Seq, "rent": inst.Amount, "depreciation_part": inst.DepreciationPart,
+			"accounting": "FAS 32 simplified (v1); depreciation basis to be validated by a Sharia/accounting advisor",
+		})
+		return TransitionPlan{
+			Postings:   IjarahPayRentPostings(c.ID, ip, *inst, last),
+			Reference:  fmt.Sprintf("%s:rent:%d", c.ID, inst.Seq),
+			NewState:   newState, StandardRef: RefFAS32, Payload: string(payload),
+			Marks:      []InstallmentMark{{Seq: inst.Seq, Status: StatusPaid}},
+			ExtraAudit: extra,
+		}, nil
+	case TransitionLatePenalty:
+		dest := ev.Input.Destination
+		if dest == "" {
+			dest = DefaultCharityPool
+		}
+		postings, err := IjarahPenaltyPostings(c.ID, ip, ev.Input.Amount, dest)
+		if err != nil {
+			return TransitionPlan{}, err
+		}
+		ref := c.ID + ":late_penalty"
+		if ev.Input.Seq > 0 {
+			ref = fmt.Sprintf("%s:late_penalty:%d", c.ID, ev.Input.Seq)
+		}
+		payload, _ := json.Marshal(map[string]interface{}{"seq": ev.Input.Seq, "amount": ev.Input.Amount, "destination": dest})
+		return TransitionPlan{
+			Postings: postings, Reference: ref, NewState: c.State,
+			StandardRef: RefSS3, Event: EventPenalty, Payload: string(payload),
+		}, nil
+	case TransitionCancel:
+		return TransitionPlan{
+			Postings: IjarahCancelPostings(c.ID, ip, c.State), Reference: c.ID + ":cancel",
+			NewState: StateCancelled, Payload: "{}",
+		}, nil
+	}
+	return TransitionPlan{}, &Error{Code: ErrInvalidTransition, Message: "unknown transition " + ev.Name}
+}
+
+func ijarahTarget(sched []Installment, seq int) *Installment {
+	if seq > 0 {
+		for i := range sched {
+			if sched[i].Seq == seq {
+				return &sched[i]
+			}
+		}
+		return nil
+	}
+	for i := range sched {
+		if sched[i].Status == StatusPending || sched[i].Status == StatusOverdue {
+			return &sched[i]
+		}
+	}
+	return nil
+}
+
+func ijarahIsLastUnpaid(sched []Installment, seq int) bool {
+	for _, it := range sched {
+		if it.Seq != seq && (it.Status == StatusPending || it.Status == StatusOverdue) {
+			return false
+		}
+	}
+	return true
 }

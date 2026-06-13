@@ -62,6 +62,8 @@ func kindFor(contractType string) (ContractKind, bool) {
 // starts in. All current contract types begin in PROMISE.
 func kindInitialState(t string) string {
 	switch t {
+	case TypeIjarah:
+		return StatePromise
 	default:
 		return StatePromise
 	}
@@ -70,6 +72,8 @@ func kindInitialState(t string) string {
 // templateVersionFor returns the stored template version for a contract type.
 func templateVersionFor(t string) string {
 	switch t {
+	case TypeIjarah:
+		return TemplateVersionIjarah
 	case TypeMurabaha:
 		return TemplateVersionMurabaha
 	default:
@@ -80,6 +84,8 @@ func templateVersionFor(t string) string {
 // createStandardRef returns the AAOIFI reference recorded on the created event.
 func createStandardRef(t string) string {
 	switch t {
+	case TypeIjarah:
+		return RefSS9
 	default:
 		return RefSS8
 	}
