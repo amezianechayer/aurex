@@ -456,6 +456,15 @@ func mustCreate(t *testing.T, e *sharia.Engine, id string, p sharia.MurabahaPara
 	return c, s
 }
 
+func mustCreateReq(t *testing.T, e *sharia.Engine, req sharia.CreateRequest) (sharia.Contract, []sharia.Installment) {
+	t.Helper()
+	c, sched, err := e.Create(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c, sched
+}
+
 func mustTransition(t *testing.T, e *sharia.Engine, id, name string) sharia.TransitionResult {
 	t.Helper()
 	res, err := e.Transition(id, name, sharia.TransitionInput{})
