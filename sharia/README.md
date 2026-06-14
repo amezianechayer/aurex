@@ -1,9 +1,12 @@
-# sharia — Islamic finance contract engine (v1: Murabaha)
+# sharia — Islamic finance contract engine
 
-AAOIFI-aligned Murabaha contracts on top of the corren programmable ledger.
-API-first: every state change is one atomic ledger transaction plus one
-hash-chained audit event. All amounts are `int64` minor units — no floats,
+AAOIFI-aligned Islamic finance contracts on top of the corren programmable
+ledger. API-first: every state change is one atomic ledger transaction plus
+one hash-chained audit event. All amounts are `int64` minor units — no floats,
 anywhere.
+
+Two contracts ship today: **Murabaha** (cost-plus sale) and **Ijarah**
+(operating lease). The engine is multi-contract: see "Adding a contract" below.
 
 ## State machine
 
@@ -47,6 +50,70 @@ At any moment: `balance(receivable) == Σ unpaid installment amounts` and
 Standard references are document-level (`AAOIFI-SS-8`, `AAOIFI-SS-3`,
 `AAOIFI-FAS-28`); exact clause numbers must be confirmed by a Sharia
 advisor before production.
+
+---
+
+## Ijarah (operating lease)
+
+The bank buys an asset, keeps it on its own books (continuous ownership is
+what makes the rent licit), leases the *use* to the client, recognizes rent
+period by period, depreciates the asset straight-line, and takes the asset
+back at the end. No ownership transfer (lease-to-own / IMB is v2).
+
+### State machine
+
+```
+PROMISE ──acquire──▶ ACQUIRED ──lease──▶ LEASED ──pay_rent (×N)──▶ COMPLETED
+   │                    │                   │
+   └──cancel──▶ CANCELLED◀──cancel          └──(asset returned to the lessor)
+```
+
+`lease` ≠ a sale: only possession (usufruct) moves to the client; ownership
+and the book value stay with the bank. `cancel` from LEASED is forbidden.
+
+### Ledger accounts (per contract `<id>`)
+
+| Account | Role | May go negative |
+|---|---|---|
+| `@contracts:<id>:asset` | leased asset: the physical unit **and** its book value, depreciating. Lessor-owned throughout. | no |
+| `@client:<x>:in_use` | the client's possession of the unit during the lease | no |
+| `@bank:income:ijarah` | recognized rental income | no |
+| `@bank:expense:depreciation` | accumulated depreciation | no |
+| `@bank:inventory:returned` | where the unit lands at lease end | no |
+
+Ijarah does **not** use `:counterpart` — it has no upfront receivable, so the
+book value and recognized rent are sourced from `@world` (the ledger's
+convention for value entering an account). At completion: treasury holds the
+margin (`Σ rent − cost`), `:asset` book value is 0, income = `Σ rent`,
+depreciation = `cost`, counterpart = 0.
+
+### Invariants → standards → tests
+
+| Invariant | Rule | Standard | Test |
+|---|---|---|---|
+| IJ-1 | No lease without ownership: `lease` requires the asset in `:asset` | AAOIFI-SS-9 | `TestIjarahNominalCycle` (lease-before-acquire → 422) |
+| IJ-2 | Lessor stays the owner: the unit never transfers in ownership; book value stays on the books | AAOIFI-SS-9 | `TestIjarahNominalCycle` |
+| IJ-3 | Rent recognized period by period, never a debt born upfront | FAS-32 (simplified) | `TestIjarahNominalCycle` (no receivable at lease) |
+| IJ-4 | Straight-line depreciation, labelled "FAS 32 simplified (v1)", basis advisor-to-validate | FAS-32 (simplified) | `TestBuildIjarahScheduleReference` |
+| IJ-5 | Late penalties → charity only | AAOIFI-SS-3 | `TestIjarahPenaltyToIncomeRejected` |
+
+The accounting is labelled **"FAS 32 — simplified (v1)"**, never "FAS 32
+compliant"; the depreciation basis must be validated by a Sharia/accounting
+advisor before production.
+
+**v1 limitation:** the asset return shares the last `pay_rent` transition, so
+it has no standalone audit event (not separately queryable). Splitting it out
+is a v2 refinement.
+
+## Adding a contract (multi-contract engine)
+
+The engine routes by `Contract.Type` through `registry map[string]ContractKind`.
+A contract type is one `ContractKind` implementation (`sharia/murabaha.go`,
+`sharia/ijarah.go`) that supplies: param decode/validate, the schedule, the
+FSM, a pre-FSM `ShariaGate`, `Preconditions`, and a `BuildPlan` returning the
+postings + state + audit. Register it with `init() { register(yourKind{}) }`.
+The engine (`engine.go`) holds zero contract-specific knowledge — adding a
+contract never touches it.
 
 ## Audit chain
 

@@ -242,3 +242,42 @@ func TestContractAPIErrors(t *testing.T) {
 		}
 	})
 }
+
+// The contract controller delegates to the engine, which routes by type.
+// No controller code changes for a second contract type — this locks that in.
+func TestContractAPIIjarah(t *testing.T) {
+	withAPI(t, func(r *gin.Engine, l *ledger.Ledger) {
+		body := map[string]interface{}{
+			"type": "ijarah",
+			"id":   "ijr_api_flow",
+			"params": map[string]interface{}{
+				"asset_code":  "VHCL1",
+				"cost":        map[string]interface{}{"asset": "DZD.2", "amount": 10000000},
+				"rent":        map[string]interface{}{"asset": "DZD.2", "amount": 500000},
+				"client":      "@client:api",
+				"supplier":    "@supplier:api",
+				"periods":     24,
+				"first_due":   "2026-07-01T00:00:00Z",
+				"period_days": 30,
+			},
+		}
+		code, out := do(t, r, "POST", "/apitest/contracts", body)
+		if code != http.StatusCreated {
+			t.Fatalf("ijarah create: expected 201, got %d: %v", code, out)
+		}
+		data := out["data"].(map[string]interface{})
+		contract := data["contract"].(map[string]interface{})
+		if contract["state"] != "PROMISE" || contract["type"] != "ijarah" {
+			t.Fatalf("expected ijarah PROMISE, got %v", contract)
+		}
+		if schedule := data["schedule"].([]interface{}); len(schedule) != 24 {
+			t.Fatalf("expected 24 rent periods, got %d", len(schedule))
+		}
+
+		// lease before acquire → 422 referenced rejection (IJ-1, SS-9)
+		code, out = do(t, r, "POST", "/apitest/contracts/ijr_api_flow/transitions/lease", nil)
+		if code != http.StatusUnprocessableEntity || out["standard_ref"] != "AAOIFI-SS-9" {
+			t.Fatalf("expected 422 SS-9, got %d: %v", code, out)
+		}
+	})
+}
