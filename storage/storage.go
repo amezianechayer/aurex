@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"github.com/amezianechayer/corren/analytics"
 	"github.com/amezianechayer/corren/core"
 	"github.com/amezianechayer/corren/guard"
 	"github.com/amezianechayer/corren/ledger/query"
@@ -29,6 +30,7 @@ type Store interface {
 
 	sharia.ShariaStore
 	guard.GuardStore
+	analytics.AnalyticsStore
 }
 
 func GetStore(name string) (Store, error) {
