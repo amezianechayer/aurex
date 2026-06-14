@@ -2,6 +2,7 @@ package storage
 
 import (
 	"github.com/amezianechayer/corren/core"
+	"github.com/amezianechayer/corren/guard"
 	"github.com/amezianechayer/corren/ledger/query"
 	"github.com/amezianechayer/corren/sharia"
 	"github.com/amezianechayer/corren/storage/postgres"
@@ -27,6 +28,7 @@ type Store interface {
 	Close()
 
 	sharia.ShariaStore
+	guard.GuardStore
 }
 
 func GetStore(name string) (Store, error) {

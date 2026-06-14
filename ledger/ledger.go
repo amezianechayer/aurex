@@ -11,6 +11,7 @@ import (
 
 	"github.com/amezianechayer/corren/config"
 	"github.com/amezianechayer/corren/core"
+	"github.com/amezianechayer/corren/guard"
 	"github.com/amezianechayer/corren/ledger/query"
 	"github.com/amezianechayer/corren/storage"
 	"go.uber.org/fx"
@@ -20,6 +21,7 @@ type Ledger struct {
 	sync.Mutex
 	name        string
 	store       storage.Store
+	guard       *guard.Engine
 	_last       *core.Transaction
 	_lastMetaID int64
 }
@@ -41,6 +43,11 @@ func NewLedger(name string, lc fx.Lifecycle) (*Ledger, error) {
 		store:       store,
 		name:        name,
 		_lastMetaID: -1,
+	}
+
+	l.guard = guard.NewEngine(store)
+	if err := l.guard.Reload(); err != nil {
+		log.Printf("guard: initial reload failed for ledger %s: %v", name, err)
 	}
 
 	lc.Append(fx.Hook{
@@ -67,6 +74,9 @@ func (l *Ledger) Close() {
 func (l *Ledger) Store() storage.Store {
 	return l.store
 }
+
+// Guard exposes the guard engine so the API can hot-reload it after a rule change.
+func (l *Ledger) Guard() *guard.Engine { return l.guard }
 
 // Name returns the ledger name.
 func (l *Ledger) Name() string {
@@ -149,7 +159,15 @@ func (l *Ledger) Commit(ts []core.Transaction) ([]core.Transaction, error) {
 		}
 	}
 
+	monitorEvents, gerr := l.guard.Evaluate(l, ts, rf)
+	if gerr != nil {
+		return ts, gerr // deny: SaveTransactions never runs -> zero state change
+	}
+
 	err := l.store.SaveTransactions(ts)
+	if err == nil && len(monitorEvents) > 0 {
+		l.guard.WriteMonitorEvents(monitorEvents)
+	}
 	l._last = &ts[len(ts)-1]
 	return ts, err
 }
