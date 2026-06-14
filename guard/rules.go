@@ -121,3 +121,56 @@ func evalRule(r Rule, txs []core.Transaction, nf map[string]map[string]int64) (b
 	}
 	return false, ""
 }
+
+// ValidateRule checks a rule is well-formed before it is stored. Critically:
+// a deny rule MUST carry a standard_ref (an unexplained refusal is an audit
+// hole), and reason is always required.
+func ValidateRule(r *Rule) error {
+	if r.Action != ActionDeny && r.Action != ActionMonitor {
+		return newError(ErrInvalidRule, "action must be deny or monitor")
+	}
+	if strings.TrimSpace(r.Reason) == "" {
+		return newError(ErrInvalidRule, "reason is required")
+	}
+	if r.Action == ActionDeny && strings.TrimSpace(r.StandardRef) == "" {
+		return newError(ErrInvalidRule, "standard_ref is required for a deny rule")
+	}
+	switch r.Kind {
+	case KindAmountCap:
+		var p AmountCapParams
+		if err := json.Unmarshal(r.Params, &p); err != nil {
+			return newError(ErrInvalidRule, "invalid amount_cap params")
+		}
+		if p.Basis != "posting" && p.Basis != "net_outflow" {
+			return newError(ErrInvalidRule, "amount_cap basis must be posting or net_outflow")
+		}
+		if p.Scope == "" || p.Asset == "" || p.Max <= 0 {
+			return newError(ErrInvalidRule, "amount_cap requires scope, asset and max > 0")
+		}
+	case KindAccountList:
+		var p AccountListParams
+		if err := json.Unmarshal(r.Params, &p); err != nil {
+			return newError(ErrInvalidRule, "invalid account_list params")
+		}
+		if p.Mode != "block" && p.Mode != "allow" {
+			return newError(ErrInvalidRule, "account_list mode must be block or allow")
+		}
+		if len(p.Patterns) == 0 {
+			return newError(ErrInvalidRule, "account_list requires patterns")
+		}
+	case KindAssetRestrict:
+		var p AssetRestrictParams
+		if err := json.Unmarshal(r.Params, &p); err != nil {
+			return newError(ErrInvalidRule, "invalid asset_restrict params")
+		}
+		if p.Mode != "only" && p.Mode != "never" {
+			return newError(ErrInvalidRule, "asset_restrict mode must be only or never")
+		}
+		if p.Scope == "" || len(p.Assets) == 0 {
+			return newError(ErrInvalidRule, "asset_restrict requires scope and assets")
+		}
+	default:
+		return newError(ErrInvalidRule, "unknown rule kind "+r.Kind)
+	}
+	return nil
+}

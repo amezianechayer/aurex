@@ -123,3 +123,30 @@ func TestAssetRestrict(t *testing.T) {
 		t.Fatal("never-allowed asset must match")
 	}
 }
+
+func TestValidateRule(t *testing.T) {
+	ok := Rule{Kind: KindAmountCap, Action: ActionDeny, Reason: "limit", StandardRef: "POLICY-1",
+		Params: mustJSON(AmountCapParams{Scope: "@client:*", Asset: "DZD.2", Max: 1000, Basis: "posting"})}
+	if err := ValidateRule(&ok); err != nil {
+		t.Fatalf("valid rule rejected: %v", err)
+	}
+
+	bad := []Rule{
+		{Kind: "bogus", Action: ActionDeny, Reason: "x", StandardRef: "P"},                          // unknown kind
+		{Kind: KindAmountCap, Action: ActionDeny, Reason: "x", Params: mustJSON(AmountCapParams{Scope: "@c:*", Asset: "DZD.2", Max: 1, Basis: "posting"})}, // deny without standard_ref
+		{Kind: KindAmountCap, Action: ActionMonitor, StandardRef: "P", Params: mustJSON(AmountCapParams{Scope: "@c:*", Asset: "DZD.2", Max: 1, Basis: "posting"})},  // no reason
+		{Kind: KindAmountCap, Action: "wat", Reason: "x", StandardRef: "P", Params: mustJSON(AmountCapParams{Scope: "@c:*", Asset: "DZD.2", Max: 1, Basis: "posting"})}, // bad action
+		{Kind: KindAmountCap, Action: ActionDeny, Reason: "x", StandardRef: "P", Params: []byte(`{"basis":"bogus"}`)}, // bad basis
+	}
+	for i, r := range bad {
+		r := r
+		if err := ValidateRule(&r); err == nil {
+			t.Fatalf("bad rule %d accepted", i)
+		}
+	}
+}
+
+func mustJSON(v interface{}) []byte {
+	b, _ := json.Marshal(v)
+	return b
+}
