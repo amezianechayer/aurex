@@ -25,6 +25,7 @@ type Routes struct {
 	accountController     actions.AccountController
 	transactionController actions.TransactionController
 	contractController    actions.ContractController
+	guardController       actions.GuardController
 	authController        actions.AuthController
 }
 
@@ -39,6 +40,7 @@ func NewRoutes(
 	accountController actions.AccountController,
 	transactionController actions.TransactionController,
 	contractController actions.ContractController,
+	guardController actions.GuardController,
 	authController actions.AuthController,
 ) *Routes {
 	return &Routes{
@@ -51,6 +53,7 @@ func NewRoutes(
 		accountController:     accountController,
 		transactionController: transactionController,
 		contractController:    contractController,
+		guardController:       guardController,
 		authController:        authController,
 	}
 }
@@ -112,6 +115,14 @@ func (r *Routes) Engine(cc cors.Config) *gin.Engine {
 		ledger.POST("/contracts/:id/transitions/:name", r.contractController.PostTransition)
 		ledger.GET("/contracts/:id/schedule", r.contractController.GetSchedule)
 		ledger.GET("/contracts/:id/audit", r.contractController.GetAudit)
+
+		// GuardController
+		ledger.POST("/guard/rules", r.guardController.PostRule)
+		ledger.GET("/guard/rules", r.guardController.ListRules)
+		ledger.GET("/guard/rules/:id", r.guardController.GetRule)
+		ledger.PATCH("/guard/rules/:id", r.guardController.PatchRule)
+		ledger.DELETE("/guard/rules/:id", r.guardController.DeleteRule)
+		ledger.GET("/guard/events", r.guardController.ListEvents)
 	}
 
 	return engine
