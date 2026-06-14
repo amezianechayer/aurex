@@ -27,6 +27,7 @@ type Routes struct {
 	contractController    actions.ContractController
 	guardController       actions.GuardController
 	authController        actions.AuthController
+	lensController        actions.LensController
 }
 
 // NewRoutes -
@@ -42,6 +43,7 @@ func NewRoutes(
 	contractController actions.ContractController,
 	guardController actions.GuardController,
 	authController actions.AuthController,
+	lensController actions.LensController,
 ) *Routes {
 	return &Routes{
 		resolver:              resolver,
@@ -55,6 +57,7 @@ func NewRoutes(
 		contractController:    contractController,
 		guardController:       guardController,
 		authController:        authController,
+		lensController:        lensController,
 	}
 }
 
@@ -123,6 +126,12 @@ func (r *Routes) Engine(cc cors.Config) *gin.Engine {
 		ledger.PATCH("/guard/rules/:id", r.guardController.PatchRule)
 		ledger.DELETE("/guard/rules/:id", r.guardController.DeleteRule)
 		ledger.GET("/guard/events", r.guardController.ListEvents)
+
+		// LensController (FaRl Lens read-only analytics)
+		ledger.GET("/lens/overview", r.lensController.Overview)
+		ledger.GET("/lens/flows", r.lensController.Flows)
+		ledger.GET("/lens/rollup", r.lensController.Rollup)
+		ledger.GET("/lens/timeseries", r.lensController.TimeSeries)
 	}
 
 	return engine
