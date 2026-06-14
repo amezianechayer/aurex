@@ -14,11 +14,11 @@ type fakeStore struct {
 	events []GuardEvent
 }
 
-func (f *fakeStore) SaveRule(r Rule) error   { f.rules = append(f.rules, r); return nil }
-func (f *fakeStore) UpdateRule(r Rule) error { return nil }
-func (f *fakeStore) DeleteRule(id string) error { return nil }
+func (f *fakeStore) SaveRule(r Rule) error           { f.rules = append(f.rules, r); return nil }
+func (f *fakeStore) UpdateRule(r Rule) error         { return nil }
+func (f *fakeStore) DeleteRule(id string) error      { return nil }
 func (f *fakeStore) GetRule(id string) (Rule, error) { return Rule{}, &Error{Code: ErrNotFound} }
-func (f *fakeStore) ListRules() ([]Rule, error) { return f.rules, nil }
+func (f *fakeStore) ListRules() ([]Rule, error)      { return f.rules, nil }
 func (f *fakeStore) AppendGuardEvent(e GuardEvent) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()

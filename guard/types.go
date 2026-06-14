@@ -46,8 +46,8 @@ type AmountCapParams struct {
 }
 
 type AccountListParams struct {
-	Mode     string   `json:"mode"`     // "block" | "allow"
-	Side     string   `json:"side"`     // "source" | "destination" | "either"
+	Mode     string   `json:"mode"` // "block" | "allow"
+	Side     string   `json:"side"` // "source" | "destination" | "either"
 	Patterns []string `json:"patterns"`
 }
 

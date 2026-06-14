@@ -132,11 +132,11 @@ func TestValidateRule(t *testing.T) {
 	}
 
 	bad := []Rule{
-		{Kind: "bogus", Action: ActionDeny, Reason: "x", StandardRef: "P"},                          // unknown kind
-		{Kind: KindAmountCap, Action: ActionDeny, Reason: "x", Params: mustJSON(AmountCapParams{Scope: "@c:*", Asset: "DZD.2", Max: 1, Basis: "posting"})}, // deny without standard_ref
-		{Kind: KindAmountCap, Action: ActionMonitor, StandardRef: "P", Params: mustJSON(AmountCapParams{Scope: "@c:*", Asset: "DZD.2", Max: 1, Basis: "posting"})},  // no reason
+		{Kind: "bogus", Action: ActionDeny, Reason: "x", StandardRef: "P"},                                                                                              // unknown kind
+		{Kind: KindAmountCap, Action: ActionDeny, Reason: "x", Params: mustJSON(AmountCapParams{Scope: "@c:*", Asset: "DZD.2", Max: 1, Basis: "posting"})},              // deny without standard_ref
+		{Kind: KindAmountCap, Action: ActionMonitor, StandardRef: "P", Params: mustJSON(AmountCapParams{Scope: "@c:*", Asset: "DZD.2", Max: 1, Basis: "posting"})},      // no reason
 		{Kind: KindAmountCap, Action: "wat", Reason: "x", StandardRef: "P", Params: mustJSON(AmountCapParams{Scope: "@c:*", Asset: "DZD.2", Max: 1, Basis: "posting"})}, // bad action
-		{Kind: KindAmountCap, Action: ActionDeny, Reason: "x", StandardRef: "P", Params: []byte(`{"basis":"bogus"}`)}, // bad basis
+		{Kind: KindAmountCap, Action: ActionDeny, Reason: "x", StandardRef: "P", Params: []byte(`{"basis":"bogus"}`)},                                                   // bad basis
 	}
 	for i, r := range bad {
 		r := r
