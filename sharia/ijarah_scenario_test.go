@@ -11,7 +11,7 @@ import (
 func ijarahReq(id string) sharia.CreateRequest {
 	raw, _ := json.Marshal(sharia.IjarahParams{
 		AssetCode: "VHCL1", Cost: sharia.Monetary{Asset: "DZD.2", Amount: 10000000},
-		Rent: sharia.Monetary{Asset: "DZD.2", Amount: 500000},
+		Rent:   sharia.Monetary{Asset: "DZD.2", Amount: 500000},
 		Client: "@client:anis", Supplier: "@supplier:toyota",
 		BankTreasury: "@bank:treasury", Periods: 24,
 		FirstDue: "2026-07-01T00:00:00Z", PeriodDays: 30,

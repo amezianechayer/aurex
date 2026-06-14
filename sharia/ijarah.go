@@ -204,9 +204,9 @@ func (ijarahKind) BuildPlan(led LedgerPort, c Contract, p Params, sched []Instal
 			"accounting": "FAS 32 simplified (v1); depreciation basis to be validated by a Sharia/accounting advisor",
 		})
 		return TransitionPlan{
-			Postings:   IjarahPayRentPostings(c.ID, ip, *inst, last),
-			Reference:  fmt.Sprintf("%s:rent:%d", c.ID, inst.Seq),
-			NewState:   newState, StandardRef: RefFAS32, Payload: string(payload),
+			Postings:  IjarahPayRentPostings(c.ID, ip, *inst, last),
+			Reference: fmt.Sprintf("%s:rent:%d", c.ID, inst.Seq),
+			NewState:  newState, StandardRef: RefFAS32, Payload: string(payload),
 			Marks:      []InstallmentMark{{Seq: inst.Seq, Status: StatusPaid}},
 			ExtraAudit: extra,
 		}, nil
