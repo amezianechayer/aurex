@@ -13,6 +13,7 @@ import (
 
 	"github.com/amezianechayer/corren/config"
 	"github.com/amezianechayer/corren/core"
+	"github.com/amezianechayer/corren/guard"
 	"github.com/amezianechayer/corren/ledger"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
@@ -278,6 +279,65 @@ func TestContractAPIIjarah(t *testing.T) {
 		code, out = do(t, r, "POST", "/apitest/contracts/ijr_api_flow/transitions/lease", nil)
 		if code != http.StatusUnprocessableEntity || out["standard_ref"] != "AAOIFI-SS-9" {
 			t.Fatalf("expected 422 SS-9, got %d: %v", code, out)
+		}
+	})
+}
+
+// A guard deny fires at ledger.Commit during a contract transition. It is an
+// expected policy rejection (like a sharia violation), so the transition route
+// must surface it as a client-facing 422 carrying the rule's standard_ref —
+// not a 500, which would look like a server crash to clients and monitoring.
+func TestContractTransitionGuardDenied(t *testing.T) {
+	withAPI(t, func(r *gin.Engine, l *ledger.Ledger) {
+		const id = "mur_guard_denied"
+		const treasury = "@bank:treasury"
+
+		// Pin the treasury account explicitly so the acquire precondition reads
+		// the same account we fund below (self-contained, order-independent).
+		body := createBody(id)
+		body["params"].(map[string]interface{})["bank_treasury"] = treasury
+		if code, out := do(t, r, "POST", "/apitest/contracts", body); code != http.StatusCreated {
+			t.Fatalf("create: expected 201, got %d: %v", code, out)
+		}
+
+		// fund the treasury so the acquire precondition passes and the postings
+		// reach the guard at Commit
+		if _, err := l.Commit([]core.Transaction{{
+			Postings: []core.Posting{{Source: core.WORLD, Destination: treasury, Asset: "SAR2", Amount: 1000000000}},
+		}}); err != nil {
+			t.Fatal(err)
+		}
+
+		// seed a deny rule capping any @bank:* single-posting outflow, then
+		// hot-reload it into the engine
+		params, _ := json.Marshal(guard.AmountCapParams{Scope: "@bank:*", Asset: "SAR2", Max: 100, Basis: "posting"})
+		if err := l.Store().SaveRule(guard.Rule{
+			ID: "cap-bank-outflow", Kind: guard.KindAmountCap, Action: guard.ActionDeny,
+			Reason: "cap bank outflow", StandardRef: "POLICY-LIMIT-1",
+			Params: params, Enabled: true,
+		}); err != nil {
+			t.Fatal(err)
+		}
+		l.Guard().Reload()
+
+		// acquire posts @bank:treasury -> @supplier (10M > cap 100) → guard deny
+		code, out := do(t, r, "POST", "/apitest/contracts/"+id+"/transitions/acquire", nil)
+		if code != http.StatusUnprocessableEntity {
+			t.Fatalf("guard-denied transition: expected 422, got %d: %v", code, out)
+		}
+		if out["error"] != guard.ErrGuardDenied {
+			t.Fatalf("expected error %s, got %v", guard.ErrGuardDenied, out["error"])
+		}
+		if out["standard_ref"] != "POLICY-LIMIT-1" {
+			t.Fatalf("expected standard_ref POLICY-LIMIT-1 echoed, got %v", out)
+		}
+
+		// deny = zero state change: the contract is still PROMISE
+		if code, out := do(t, r, "GET", "/apitest/contracts/"+id, nil); code == http.StatusOK {
+			contract := out["data"].(map[string]interface{})["contract"].(map[string]interface{})
+			if contract["state"] != "PROMISE" {
+				t.Fatalf("expected PROMISE after deny (zero state change), got %v", contract["state"])
+			}
 		}
 	})
 }

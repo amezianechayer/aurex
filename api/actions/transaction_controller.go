@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/amezianechayer/corren/core"
+	"github.com/amezianechayer/corren/guard"
 	"github.com/amezianechayer/corren/ledger"
 	"github.com/amezianechayer/corren/ledger/query"
 	"github.com/gin-gonic/gin"
@@ -73,6 +74,11 @@ func (ctl *TransactionController) PostTransaction(c *gin.Context) {
 
 	ts, err := l.(*ledger.Ledger).Commit([]core.Transaction{t})
 	if err != nil {
+		if ge, ok := err.(*guard.Error); ok {
+			// A FaRl Guard rule denied this transaction at ledger.Commit.
+			ctl.responseGuardError(c, ge)
+			return
+		}
 		ctl.responseError(
 			c,
 			http.StatusInternalServerError,

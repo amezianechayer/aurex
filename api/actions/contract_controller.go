@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/amezianechayer/corren/guard"
 	"github.com/amezianechayer/corren/ledger"
 	"github.com/amezianechayer/corren/sharia"
 	"github.com/gin-gonic/gin"
@@ -62,6 +63,11 @@ func (ctl *ContractController) responseShariaError(c *gin.Context, err error) {
 			out["audit_seq"] = se.AuditSeq
 		}
 		c.AbortWithStatusJSON(se.HTTPStatus(), out)
+		return
+	}
+	if ge, ok := err.(*guard.Error); ok {
+		// A FaRl Guard rule denied the transition's postings at ledger.Commit.
+		ctl.responseGuardError(c, ge)
 		return
 	}
 	ctl.responseError(c, http.StatusInternalServerError, err)

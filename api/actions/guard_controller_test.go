@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/amezianechayer/corren/core"
+	"github.com/amezianechayer/corren/guard"
 	"github.com/amezianechayer/corren/ledger"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
@@ -181,13 +182,16 @@ func TestGuardDenyViaTransactions(t *testing.T) {
 				},
 			},
 		})
-		if code == http.StatusOK {
-			t.Fatalf("expected transfer to be blocked (non-2xx), got 200: %v", out)
+		// A guard deny is an expected policy rejection: the transaction controller
+		// surfaces it as 422 (not 500) carrying the rule's code and standard_ref.
+		if code != http.StatusUnprocessableEntity {
+			t.Fatalf("blocked transfer: expected 422, got %d: %v", code, out)
 		}
-		// The transaction controller returns 500 for any Commit error (v1 behavior).
-		// Assert it is 500 (the guard deny surfaces this way via /transactions).
-		if code != http.StatusInternalServerError {
-			t.Logf("blocked transfer returned status %d (expected 500): %v", code, out)
+		if out["error"] != guard.ErrGuardDenied {
+			t.Fatalf("expected error %s, got %v", guard.ErrGuardDenied, out["error"])
+		}
+		if out["standard_ref"] != "AAOIFI-SS-17" {
+			t.Fatalf("expected standard_ref echoed, got %v", out)
 		}
 
 		// Verify balance unchanged: client should still have 2000000
