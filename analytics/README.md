@@ -47,7 +47,28 @@ Daily in/out for one account+asset (both params required, else 400).
 ## Empty ledgers
 A fresh ledger returns zeros / empty arrays / non-nil empty maps — never an error.
 
-## Out of scope (phase 2 / v2)
-Interactive force-directed flow graph (reuses the horizon `transaction-graph`
-work, on the same `/flows` contract — pure frontend, no backend change),
-advanced time filters, CSV export, threshold alerting, multi-ledger comparison.
+## Flow graph (phase 2) — built, pure frontend on `/flows`
+A second render of the frozen `/flows` contract (the first being the v1 ranked
+table), shipped on the Horizon branch `feature/lens-ui` with **zero backend
+change**. It is a d3-v7 force-directed graph of money flow:
+
+- **Pure transforms** (`horizon/src/lib/buildGraph.js`): `buildGraph(flows, asset)`
+  → `{nodes, links, buckets}`; `kindOf(account)` maps the address prefix to a
+  semantic kind (`bank|client|supplier|contracts|world|other`); node `volume` =
+  sum of incident amounts; links collapse `(source, destination)`.
+- **Single asset at a time** via a selector (default = largest-volume asset);
+  thicknesses are never compared across assets.
+- **Automatic clustering by kind**: a per-kind centroid force groups nodes; any
+  kind can collapse into one labelled meta-node ("Clients (42)") with aggregated
+  edges. Default-collapsed when a kind has > 12 members. Collapse/expand is driven
+  by reliable HTML legend buttons (not clicks on moving SVG nodes).
+- **Cumulative time-scrubber** (`filterToBucket`): position T shows all flows up
+  to T; play/pause replays the timeline (700 ms/bucket) and restarts from the
+  first bucket when pressed at the end.
+- **Robustness**: the d3 simulation is stopped and the SVG cleared on every
+  asset/limit/cluster/bucket change (no post-unmount ticking); no `setState` in
+  the d3 tick; empty ledgers render "Aucun flux à afficher." with no graph mounted.
+
+## Out of scope (v2)
+Advanced time filters, windowed (non-cumulative) view, CSV/PNG export, threshold
+alerting, multi-ledger comparison, connectivity-based community detection.
