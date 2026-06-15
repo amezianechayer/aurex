@@ -65,15 +65,22 @@ type MurabahaParams struct {
 	PeriodDays   int      `json:"period_days"`
 }
 
-// Validate checks params per spec §5.1 and applies defaults
-// (treasury, period). Returns ERR_INVALID_PARAMS with a per-field detail.
-func (p *MurabahaParams) Validate() error {
+// applyDefaults fills optional params with their defaults. Called from
+// DecodeParams so the defaults are decoded, validated, persisted (the create
+// flow re-marshals the decoded params) and read back on every later decode.
+func (p *MurabahaParams) applyDefaults() {
 	if p.BankTreasury == "" {
-		p.BankTreasury = "@bank:treasury"
+		p.BankTreasury = DefaultBankTreasury
 	}
 	if p.PeriodDays == 0 {
 		p.PeriodDays = 30
 	}
+}
+
+// Validate checks params per spec §5.1 and applies defaults
+// (treasury, period). Returns ERR_INVALID_PARAMS with a per-field detail.
+func (p *MurabahaParams) Validate() error {
+	p.applyDefaults()
 
 	switch {
 	case p.Cost.Amount <= 0:
@@ -187,13 +194,17 @@ type IjarahParams struct {
 	PeriodDays   int      `json:"period_days"`
 }
 
-func (p *IjarahParams) Validate() error {
+func (p *IjarahParams) applyDefaults() {
 	if p.BankTreasury == "" {
-		p.BankTreasury = "@bank:treasury"
+		p.BankTreasury = DefaultBankTreasury
 	}
 	if p.PeriodDays == 0 {
 		p.PeriodDays = 30
 	}
+}
+
+func (p *IjarahParams) Validate() error {
+	p.applyDefaults()
 	switch {
 	case p.Cost.Amount <= 0:
 		return newError(ErrInvalidParams, "cost.amount must be > 0")

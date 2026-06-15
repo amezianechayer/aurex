@@ -99,6 +99,7 @@ func (ijarahKind) DecodeParams(raw json.RawMessage) (Params, error) {
 	if err := json.Unmarshal(raw, &p); err != nil {
 		return nil, newError(ErrInvalidParams, "invalid ijarah params: "+err.Error())
 	}
+	p.applyDefaults()
 	return p, nil
 }
 

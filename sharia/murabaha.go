@@ -145,6 +145,7 @@ func (murabahaKind) DecodeParams(raw json.RawMessage) (Params, error) {
 	if err := json.Unmarshal(raw, &p); err != nil {
 		return nil, newError(ErrInvalidParams, "invalid murabaha params: "+err.Error())
 	}
+	p.applyDefaults()
 	return p, nil
 }
 

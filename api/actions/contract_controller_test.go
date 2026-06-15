@@ -341,3 +341,56 @@ func TestContractTransitionGuardDenied(t *testing.T) {
 		}
 	})
 }
+
+// Optional params carry defaults (bank_treasury, period_days). The engine must
+// PERSIST the defaulted values — not the empty values the client omitted —
+// otherwise later transitions decode an empty treasury account ("") and fail
+// their precondition. Covers both contract kinds.
+func TestContractCreatePersistsDefaults(t *testing.T) {
+	withAPI(t, func(r *gin.Engine, l *ledger.Ledger) {
+		murabaha := map[string]interface{}{
+			"type": "murabaha", "id": "def_murabaha",
+			"params": map[string]interface{}{
+				"asset_code": "VHCL7", "cost": map[string]interface{}{"asset": "SAR2", "amount": 10000000},
+				"markup": map[string]interface{}{"asset": "SAR2", "amount": 1000000},
+				"client": "@client:def", "supplier": "@supplier:def",
+				"installments": 12, "first_due": "2026-07-01T00:00:00Z",
+				// bank_treasury and period_days intentionally omitted
+			},
+		}
+		ijarah := map[string]interface{}{
+			"type": "ijarah", "id": "def_ijarah",
+			"params": map[string]interface{}{
+				"asset_code": "VHCL8", "cost": map[string]interface{}{"asset": "SAR2", "amount": 10000000},
+				"rent": map[string]interface{}{"asset": "SAR2", "amount": 1000000},
+				"client": "@client:def", "supplier": "@supplier:def",
+				"periods": 12, "first_due": "2026-07-01T00:00:00Z",
+				// bank_treasury and period_days intentionally omitted
+			},
+		}
+
+		for _, tc := range []struct {
+			kind string
+			id   string
+			body map[string]interface{}
+		}{
+			{"murabaha", "def_murabaha", murabaha},
+			{"ijarah", "def_ijarah", ijarah},
+		} {
+			if code, out := do(t, r, "POST", "/apitest/contracts", tc.body); code != http.StatusCreated {
+				t.Fatalf("%s create: expected 201, got %d: %v", tc.kind, code, out)
+			}
+			code, out := do(t, r, "GET", "/apitest/contracts/"+tc.id, nil)
+			if code != http.StatusOK {
+				t.Fatalf("%s get: expected 200, got %d: %v", tc.kind, code, out)
+			}
+			params := out["data"].(map[string]interface{})["contract"].(map[string]interface{})["params"].(map[string]interface{})
+			if params["bank_treasury"] != "@bank:treasury" {
+				t.Fatalf("%s: expected persisted bank_treasury default @bank:treasury, got %v", tc.kind, params["bank_treasury"])
+			}
+			if params["period_days"] != float64(30) {
+				t.Fatalf("%s: expected persisted period_days default 30, got %v", tc.kind, params["period_days"])
+			}
+		}
+	})
+}
