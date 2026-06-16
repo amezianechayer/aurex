@@ -71,8 +71,8 @@ func (s *PGStore) ListWallets(limit, offset int) ([]wallets.Wallet, error) {
 func (s *PGStore) SaveHold(h wallets.Hold) error {
 	ib := sqlbuilder.NewInsertBuilder()
 	ib.InsertInto(s.table("wallet_holds"))
-	ib.Cols("id", "wallet_id", "asset", "amount", "status", "description", "created_at", "updated_at")
-	ib.Values(h.ID, h.WalletID, h.Asset, h.Amount, h.Status, h.Description, h.CreatedAt, h.UpdatedAt)
+	ib.Cols("id", "wallet_id", "asset", "amount", "status", "reason", "expires_at", "created_at", "updated_at")
+	ib.Values(h.ID, h.WalletID, h.Asset, h.Amount, h.Status, h.Reason, h.ExpiresAt, h.CreatedAt, h.UpdatedAt)
 	return s.execWallet(ib)
 }
 
@@ -89,14 +89,14 @@ func (s *PGStore) UpdateHold(h wallets.Hold) error {
 
 func (s *PGStore) GetHold(id string) (wallets.Hold, error) {
 	sb := sqlbuilder.NewSelectBuilder()
-	sb.Select("id", "wallet_id", "asset", "amount", "status", "description", "created_at", "updated_at")
+	sb.Select("id", "wallet_id", "asset", "amount", "status", "reason", "expires_at", "created_at", "updated_at")
 	sb.From(s.table("wallet_holds"))
 	sb.Where(sb.Equal("id", id))
 	sqlq, args := sb.BuildWithFlavor(sqlbuilder.PostgreSQL)
 
 	var h wallets.Hold
 	err := s.Conn().QueryRow(context.Background(), sqlq, args...).Scan(
-		&h.ID, &h.WalletID, &h.Asset, &h.Amount, &h.Status, &h.Description, &h.CreatedAt, &h.UpdatedAt)
+		&h.ID, &h.WalletID, &h.Asset, &h.Amount, &h.Status, &h.Reason, &h.ExpiresAt, &h.CreatedAt, &h.UpdatedAt)
 	if err == pgx.ErrNoRows {
 		return wallets.Hold{}, fmt.Errorf("hold not found: %s", id)
 	}
@@ -105,7 +105,7 @@ func (s *PGStore) GetHold(id string) (wallets.Hold, error) {
 
 func (s *PGStore) ListHolds(walletID string) ([]wallets.Hold, error) {
 	sb := sqlbuilder.NewSelectBuilder()
-	sb.Select("id", "wallet_id", "asset", "amount", "status", "description", "created_at", "updated_at")
+	sb.Select("id", "wallet_id", "asset", "amount", "status", "reason", "expires_at", "created_at", "updated_at")
 	sb.From(s.table("wallet_holds"))
 	sb.Where(sb.Equal("wallet_id", walletID))
 	sb.OrderBy("created_at").Desc()
@@ -121,7 +121,7 @@ func (s *PGStore) ListHolds(walletID string) ([]wallets.Hold, error) {
 	for rows.Next() {
 		var h wallets.Hold
 		if err := rows.Scan(
-			&h.ID, &h.WalletID, &h.Asset, &h.Amount, &h.Status, &h.Description, &h.CreatedAt, &h.UpdatedAt); err != nil {
+			&h.ID, &h.WalletID, &h.Asset, &h.Amount, &h.Status, &h.Reason, &h.ExpiresAt, &h.CreatedAt, &h.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, h)

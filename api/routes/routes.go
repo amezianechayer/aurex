@@ -141,10 +141,13 @@ func (r *Routes) Engine(cc cors.Config) *gin.Engine {
 		ledger.GET("/wallets", r.walletController.ListWallets)
 		ledger.GET("/wallets/:id", r.walletController.GetWallet)
 		ledger.GET("/wallets/:id/balances", r.walletController.GetBalances)
+		ledger.GET("/wallets/:id/transactions", r.walletController.GetTransactions)
 		ledger.POST("/wallets/:id/credit", r.walletController.PostCredit)
 		ledger.POST("/wallets/:id/debit", r.walletController.PostDebit)
+		ledger.POST("/wallets/:id/transfer", r.walletController.PostTransfer)
 		ledger.POST("/wallets/:id/holds", r.walletController.PostHold)
 		ledger.GET("/wallets/:id/holds", r.walletController.ListHolds)
+		ledger.DELETE("/wallets/:id/holds/:hold_id", r.walletController.ReleaseHold)
 		ledger.POST("/wallets/:id/holds/:hold_id/capture", r.walletController.PostCaptureHold)
 		ledger.POST("/wallets/:id/holds/:hold_id/void", r.walletController.PostVoidHold)
 	}

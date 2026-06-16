@@ -33,15 +33,19 @@ type Wallet struct {
 
 // Hold records the intent and status of a reservation. The reserved funds
 // themselves sit in the ledger holds account; this row tracks what they are for.
+// ExpiresAt is informational (RFC3339, optional): it is recorded and returned,
+// but automatic sweep-and-release of expired holds is out of scope for now —
+// release is explicit via DELETE.
 type Hold struct {
-	ID          string `json:"id"`
-	WalletID    string `json:"wallet_id"`
-	Asset       string `json:"asset"`
-	Amount      int64  `json:"amount"`
-	Status      string `json:"status"`
-	Description string `json:"description,omitempty"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
+	ID        string `json:"id"`
+	WalletID  string `json:"wallet_id"`
+	Asset     string `json:"asset"`
+	Amount    int64  `json:"amount"`
+	Status    string `json:"status"`
+	Reason    string `json:"reason,omitempty"`
+	ExpiresAt string `json:"expires_at,omitempty"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
 }
 
 // Balances is the read view of a wallet: available (spendable) and held

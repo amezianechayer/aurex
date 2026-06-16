@@ -33,10 +33,13 @@ func withWalletAPI(t *testing.T, f func(r *gin.Engine, l *ledger.Ledger)) {
 			grp.GET("/wallets", wc.ListWallets)
 			grp.GET("/wallets/:id", wc.GetWallet)
 			grp.GET("/wallets/:id/balances", wc.GetBalances)
+			grp.GET("/wallets/:id/transactions", wc.GetTransactions)
 			grp.POST("/wallets/:id/credit", wc.PostCredit)
 			grp.POST("/wallets/:id/debit", wc.PostDebit)
+			grp.POST("/wallets/:id/transfer", wc.PostTransfer)
 			grp.POST("/wallets/:id/holds", wc.PostHold)
 			grp.GET("/wallets/:id/holds", wc.ListHolds)
+			grp.DELETE("/wallets/:id/holds/:hold_id", wc.ReleaseHold)
 			grp.POST("/wallets/:id/holds/:hold_id/capture", wc.PostCaptureHold)
 			grp.POST("/wallets/:id/holds/:hold_id/void", wc.PostVoidHold)
 
@@ -119,7 +122,7 @@ func TestWalletAPIFullFlow(t *testing.T) {
 
 		// hold 300.00 → available 500.00, held 300.00
 		code, out = do(t, r, "POST", "/walletapitest/wallets/"+alice+"/holds", map[string]interface{}{
-			"amount": 30000, "description": "pending order",
+			"amount": 30000, "reason": "pending order", "expires_at": "2026-12-31T00:00:00Z",
 		})
 		if code != http.StatusCreated {
 			t.Fatalf("hold: expected 201, got %d: %v", code, out)
@@ -147,6 +150,88 @@ func TestWalletAPIFullFlow(t *testing.T) {
 		}
 		if got := available(t, r, bob, asset); got != 10000 {
 			t.Fatalf("after P2P expected Bob available 10000, got %v", got)
+		}
+	})
+}
+
+// Exercises the spec's exact surface: GET /:id returns wallet+balance, the
+// /transfer endpoint, DELETE to release a hold, and /transactions history.
+func TestWalletAPISpecSurface(t *testing.T) {
+	withWalletAPI(t, func(r *gin.Engine, l *ledger.Ledger) {
+		const asset = "AED.2"
+
+		_, out := do(t, r, "POST", "/walletapitest/wallets", map[string]interface{}{"owner": "@user:alice", "asset": asset})
+		alice := walletData(out)["id"].(string)
+		_, out = do(t, r, "POST", "/walletapitest/wallets", map[string]interface{}{"owner": "@user:bob", "asset": asset})
+		bob := walletData(out)["id"].(string)
+		do(t, r, "POST", "/walletapitest/wallets/"+alice+"/credit", map[string]interface{}{"amount": 100000})
+
+		// GET /wallets/:id returns wallet + balance
+		code, out := do(t, r, "GET", "/walletapitest/wallets/"+alice, nil)
+		if code != http.StatusOK {
+			t.Fatalf("get wallet: %d: %v", code, out)
+		}
+		d := walletData(out)
+		if d["owner"] != "@user:alice" {
+			t.Fatalf("expected owner in wallet response, got %v", d)
+		}
+		bals, ok := d["balances"].(map[string]interface{})
+		if !ok {
+			t.Fatalf("expected balances in GET /:id, got %v", d)
+		}
+		av, _ := bals["available"].(map[string]interface{})
+		if av[asset].(float64) != 100000 {
+			t.Fatalf("expected available 100000 in GET /:id, got %v", bals)
+		}
+
+		// transfer 300.00 Alice -> Bob via the /transfer endpoint
+		if code, out := do(t, r, "POST", "/walletapitest/wallets/"+alice+"/transfer", map[string]interface{}{
+			"to": bob, "amount": 30000,
+		}); code != http.StatusOK {
+			t.Fatalf("transfer: %d: %v", code, out)
+		}
+		if got := available(t, r, bob, asset); got != 30000 {
+			t.Fatalf("after transfer expected Bob available 30000, got %v", got)
+		}
+
+		// transfer to a non-existent wallet → 404
+		if code, _ := do(t, r, "POST", "/walletapitest/wallets/"+alice+"/transfer", map[string]interface{}{
+			"to": "wlt_ghost", "amount": 1000,
+		}); code != http.StatusNotFound {
+			t.Fatalf("transfer to ghost: expected 404, got %d", code)
+		}
+
+		// hold then DELETE to release
+		code, out = do(t, r, "POST", "/walletapitest/wallets/"+alice+"/holds", map[string]interface{}{
+			"amount": 20000, "reason": "escrow", "expires_at": "2026-12-31T00:00:00Z",
+		})
+		if code != http.StatusCreated {
+			t.Fatalf("hold: %d: %v", code, out)
+		}
+		hold := walletData(out)
+		if hold["reason"] != "escrow" || hold["expires_at"] != "2026-12-31T00:00:00Z" {
+			t.Fatalf("hold should carry reason+expires_at, got %v", hold)
+		}
+		holdID := hold["id"].(string)
+		if held(t, r, alice, asset) != 20000 {
+			t.Fatalf("expected held 20000 after hold")
+		}
+		if code, out := do(t, r, "DELETE", "/walletapitest/wallets/"+alice+"/holds/"+holdID, nil); code != http.StatusOK {
+			t.Fatalf("release hold: %d: %v", code, out)
+		}
+		if held(t, r, alice, asset) != 0 {
+			t.Fatalf("expected held 0 after release")
+		}
+
+		// transaction history is non-empty
+		code, out = do(t, r, "GET", "/walletapitest/wallets/"+alice+"/transactions", nil)
+		if code != http.StatusOK {
+			t.Fatalf("transactions: %d: %v", code, out)
+		}
+		cur, _ := out["cursor"].(map[string]interface{})
+		data, _ := cur["data"].([]interface{})
+		if len(data) == 0 {
+			t.Fatalf("expected non-empty transaction history, got %v", out)
 		}
 	})
 }

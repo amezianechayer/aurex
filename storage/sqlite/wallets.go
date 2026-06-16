@@ -69,8 +69,8 @@ func (s *SQLiteStore) ListWallets(limit, offset int) ([]wallets.Wallet, error) {
 func (s *SQLiteStore) SaveHold(h wallets.Hold) error {
 	ib := sqlbuilder.NewInsertBuilder()
 	ib.InsertInto("wallet_holds")
-	ib.Cols("id", "wallet_id", "asset", "amount", "status", "description", "created_at", "updated_at")
-	ib.Values(h.ID, h.WalletID, h.Asset, h.Amount, h.Status, h.Description, h.CreatedAt, h.UpdatedAt)
+	ib.Cols("id", "wallet_id", "asset", "amount", "status", "reason", "expires_at", "created_at", "updated_at")
+	ib.Values(h.ID, h.WalletID, h.Asset, h.Amount, h.Status, h.Reason, h.ExpiresAt, h.CreatedAt, h.UpdatedAt)
 	return s.exec(ib)
 }
 
@@ -87,14 +87,14 @@ func (s *SQLiteStore) UpdateHold(h wallets.Hold) error {
 
 func (s *SQLiteStore) GetHold(id string) (wallets.Hold, error) {
 	sb := sqlbuilder.NewSelectBuilder()
-	sb.Select("id", "wallet_id", "asset", "amount", "status", "description", "created_at", "updated_at")
+	sb.Select("id", "wallet_id", "asset", "amount", "status", "reason", "expires_at", "created_at", "updated_at")
 	sb.From("wallet_holds")
 	sb.Where(sb.Equal("id", id))
 	sqlq, args := sb.BuildWithFlavor(sqlbuilder.SQLite)
 
 	var h wallets.Hold
 	err := s.db.QueryRow(sqlq, args...).Scan(
-		&h.ID, &h.WalletID, &h.Asset, &h.Amount, &h.Status, &h.Description, &h.CreatedAt, &h.UpdatedAt)
+		&h.ID, &h.WalletID, &h.Asset, &h.Amount, &h.Status, &h.Reason, &h.ExpiresAt, &h.CreatedAt, &h.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return wallets.Hold{}, fmt.Errorf("hold not found: %s", id)
 	}
@@ -103,7 +103,7 @@ func (s *SQLiteStore) GetHold(id string) (wallets.Hold, error) {
 
 func (s *SQLiteStore) ListHolds(walletID string) ([]wallets.Hold, error) {
 	sb := sqlbuilder.NewSelectBuilder()
-	sb.Select("id", "wallet_id", "asset", "amount", "status", "description", "created_at", "updated_at")
+	sb.Select("id", "wallet_id", "asset", "amount", "status", "reason", "expires_at", "created_at", "updated_at")
 	sb.From("wallet_holds")
 	sb.Where(sb.Equal("wallet_id", walletID))
 	sb.OrderBy("created_at").Desc()
@@ -119,7 +119,7 @@ func (s *SQLiteStore) ListHolds(walletID string) ([]wallets.Hold, error) {
 	for rows.Next() {
 		var h wallets.Hold
 		if err := rows.Scan(
-			&h.ID, &h.WalletID, &h.Asset, &h.Amount, &h.Status, &h.Description, &h.CreatedAt, &h.UpdatedAt); err != nil {
+			&h.ID, &h.WalletID, &h.Asset, &h.Amount, &h.Status, &h.Reason, &h.ExpiresAt, &h.CreatedAt, &h.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, h)

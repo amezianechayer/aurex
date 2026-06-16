@@ -174,7 +174,7 @@ func TestHoldLifecycle(t *testing.T) {
 	w, _ := svc.Create("@user:alice", asset)
 	svc.Credit(w.ID, "", 100000, "")
 
-	h, err := svc.Hold(w.ID, "", 30000, "pending purchase")
+	h, err := svc.Hold(w.ID, "", 30000, "pending purchase", "2026-12-31T00:00:00Z")
 	if err != nil {
 		t.Fatalf("hold: %v", err)
 	}
@@ -192,7 +192,7 @@ func TestHoldLifecycle(t *testing.T) {
 	}
 
 	// a second hold, then void it → funds return to available
-	h2, _ := svc.Hold(w.ID, "", 10000, "")
+	h2, _ := svc.Hold(w.ID, "", 10000, "", "")
 	if _, err := svc.VoidHold(w.ID, h2.ID); err != nil {
 		t.Fatalf("void: %v", err)
 	}
@@ -208,7 +208,7 @@ func TestHoldShariaAwareNoFictitiousDebt(t *testing.T) {
 	svc.Credit(w.ID, "", 5000, "")
 
 	// holding more than available must be refused by the ledger invariant
-	_, err := svc.Hold(w.ID, "", 9000, "")
+	_, err := svc.Hold(w.ID, "", 9000, "", "")
 	we, ok := err.(*Error)
 	if !ok || we.Code != ErrInsufficientFunds {
 		t.Fatalf("expected ERR_INSUFFICIENT_FUNDS (no hold on funds that don't exist), got %v", err)
@@ -219,7 +219,7 @@ func TestCaptureInactiveHold(t *testing.T) {
 	svc, _ := newService()
 	w, _ := svc.Create("@user:alice", asset)
 	svc.Credit(w.ID, "", 100000, "")
-	h, _ := svc.Hold(w.ID, "", 30000, "")
+	h, _ := svc.Hold(w.ID, "", 30000, "", "")
 	svc.CaptureHold(w.ID, h.ID, "")
 
 	_, err := svc.CaptureHold(w.ID, h.ID, "") // already captured
@@ -234,4 +234,60 @@ func TestWalletNotFound(t *testing.T) {
 	if _, err := svc.Balances("wlt_does_not_exist"); err == nil {
 		t.Fatal("expected ERR_NOT_FOUND")
 	}
+}
+
+func TestTransfer(t *testing.T) {
+	svc, _ := newService()
+	alice, _ := svc.Create("@user:alice", asset)
+	bob, _ := svc.Create("@user:bob", asset)
+	svc.Credit(alice.ID, "", 100000, "")
+
+	// nominal
+	if _, err := svc.Transfer(alice.ID, bob.ID, "", 30000); err != nil {
+		t.Fatalf("transfer: %v", err)
+	}
+	if av := mustBal(t, svc, alice.ID); av != 70000 {
+		t.Fatalf("alice available expected 70000, got %d", av)
+	}
+	if av := mustBal(t, svc, bob.ID); av != 30000 {
+		t.Fatalf("bob available expected 30000, got %d", av)
+	}
+
+	// destination wallet doesn't exist
+	if _, err := svc.Transfer(alice.ID, "wlt_ghost", "", 1000); err == nil {
+		t.Fatal("expected ERR_NOT_FOUND for missing destination wallet")
+	}
+
+	// insufficient funds (no implicit debt = no riba)
+	_, err := svc.Transfer(alice.ID, bob.ID, "", 999999)
+	we, ok := err.(*Error)
+	if !ok || we.Code != ErrInsufficientFunds {
+		t.Fatalf("expected ERR_INSUFFICIENT_FUNDS, got %v", err)
+	}
+}
+
+func TestReleaseHoldReturnsFunds(t *testing.T) {
+	svc, _ := newService()
+	w, _ := svc.Create("@user:alice", asset)
+	svc.Credit(w.ID, "", 50000, "")
+	h, _ := svc.Hold(w.ID, "", 20000, "escrow", "2026-12-31T00:00:00Z")
+	if h.ExpiresAt != "2026-12-31T00:00:00Z" || h.Reason != "escrow" {
+		t.Fatalf("hold should record reason+expires_at, got %+v", h)
+	}
+	if _, err := svc.Release(w.ID, h.ID); err != nil {
+		t.Fatalf("release: %v", err)
+	}
+	b, _ := svc.Balances(w.ID)
+	if b.Available[asset] != 50000 || b.Held[asset] != 0 {
+		t.Fatalf("after release expected available 50000 / held 0, got %d / %d", b.Available[asset], b.Held[asset])
+	}
+}
+
+func mustBal(t *testing.T, svc *Service, id string) int64 {
+	t.Helper()
+	b, err := svc.Balances(id)
+	if err != nil {
+		t.Fatalf("balances: %v", err)
+	}
+	return b.Available[asset]
 }

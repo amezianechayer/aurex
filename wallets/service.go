@@ -107,10 +107,28 @@ func (s *Service) Debit(id, asset string, amount int64, destination string) (cor
 	return s.move(MainAccount(w.ID), destination, asset, amount, "debit", w.ID)
 }
 
+// Transfer moves funds from one wallet to another: a single posting
+// fromMain -> toMain. Both wallets must exist; insufficient funds are refused by
+// the ledger (no implicit debt = no riba).
+func (s *Service) Transfer(fromID, toID, asset string, amount int64) (core.Transaction, error) {
+	from, err := s.requireWallet(fromID, &asset)
+	if err != nil {
+		return core.Transaction{}, err
+	}
+	to, err := s.store.GetWallet(toID)
+	if err != nil {
+		return core.Transaction{}, &Error{Code: ErrNotFound, Message: "destination wallet not found", WalletID: toID}
+	}
+	if err := requirePositive(amount); err != nil {
+		return core.Transaction{}, err
+	}
+	return s.move(MainAccount(from.ID), MainAccount(to.ID), asset, amount, "transfer", from.ID)
+}
+
 // Hold reserves funds: a real posting main -> holds. Sharia-aware by
 // construction — the ledger refuses it if the available balance is short, so a
 // hold can never create fictitious debt.
-func (s *Service) Hold(id, asset string, amount int64, description string) (Hold, error) {
+func (s *Service) Hold(id, asset string, amount int64, reason, expiresAt string) (Hold, error) {
 	w, err := s.requireWallet(id, &asset)
 	if err != nil {
 		return Hold{}, err
@@ -124,12 +142,18 @@ func (s *Service) Hold(id, asset string, amount int64, description string) (Hold
 	ts := now()
 	h := Hold{
 		ID: generateID("hld_"), WalletID: w.ID, Asset: asset, Amount: amount,
-		Status: HoldActive, Description: description, CreatedAt: ts, UpdatedAt: ts,
+		Status: HoldActive, Reason: reason, ExpiresAt: expiresAt, CreatedAt: ts, UpdatedAt: ts,
 	}
 	if err := s.store.SaveHold(h); err != nil {
 		return Hold{}, err
 	}
 	return h, nil
+}
+
+// Release frees a hold back to the wallet's available balance (holds -> main).
+// This is the DELETE /holds/:id operation.
+func (s *Service) Release(walletID, holdID string) (core.Transaction, error) {
+	return s.VoidHold(walletID, holdID)
 }
 
 // CaptureHold settles a hold to a destination (default @world): holds ->

@@ -9,14 +9,15 @@ CREATE TABLE IF NOT EXISTS wallets (
 );
 --statement
 CREATE TABLE IF NOT EXISTS wallet_holds (
-  "id"          varchar,
-  "wallet_id"   varchar,
-  "asset"       varchar,
-  "amount"      integer,
-  "status"      varchar,
-  "description" varchar,
-  "created_at"  varchar,
-  "updated_at"  varchar,
+  "id"         varchar,
+  "wallet_id"  varchar,
+  "asset"      varchar,
+  "amount"     integer,
+  "status"     varchar,
+  "reason"     varchar,
+  "expires_at" varchar,
+  "created_at" varchar,
+  "updated_at" varchar,
   UNIQUE("id")
 );
 --statement
