@@ -15,7 +15,42 @@ Corren répond à ce problème avec un ledger qui offre des transactions multi-p
 
 ---
 
-## Démarrage rapide
+## Démarrage rapide — Docker (recommandé)
+
+Toute la stack en une commande : PostgreSQL, le ledger **corren** (qui inclut
+FaRl, les contrats sharia, le Guard, Lens et le module **Wallets**) et le
+dashboard **Horizon**.
+
+```bash
+git clone https://github.com/amezianechayer/corren
+git clone https://github.com/amezianechayer/horizon   # repo voisin (../horizon)
+cd corren
+cp .env.example .env                # valeurs par défaut prêtes à l'emploi
+docker compose up --build
+```
+
+- **corren API** → http://localhost:3068  (ledger, contracts, guard, lens, wallets)
+- **Horizon UI** → http://localhost:3078
+- **PostgreSQL** → localhost:5433
+
+> Il n'y a pas de service « wallets » séparé : les Wallets sont un module
+> compilé dans le binaire corren (tout mouvement d'argent passe par l'unique
+> chokepoint ledger + Guard), donc servis par le service `corren`.
+
+Vérifier que tout est debout :
+
+```bash
+curl http://localhost:3068/_info
+# créer un wallet
+curl -X POST http://localhost:3068/quickstart/wallets \
+  -H 'Content-Type: application/json' \
+  -d '{"owner":"@user:alice","asset":"AED.2"}'
+```
+
+Configuration via `.env` (voir `.env.example`). Le SPA Horizon appelle l'API en
+`http://localhost:3068` depuis le navigateur : garde `CORREN_PORT=3068`.
+
+## Démarrage rapide — depuis les sources
 
 ```bash
 # Compiler et installer
@@ -262,7 +297,8 @@ corren storage init                   # Initialiser le schéma de base de donné
 - [x] API REST — script, transactions, comptes
 - [x] Storage SQLite et PostgreSQL
 - [x] CLI — exec, server, config
-- [ ] Docker Compose — déploiement en une commande
+- [x] Docker Compose — déploiement en une commande
+- [x] Module Wallets — soldes, holds Sharia-aware, transferts
 - [ ] Tests d'intégration complets
 - [ ] Documentation API OpenAPI/Swagger
 

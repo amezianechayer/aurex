@@ -1,11 +1,16 @@
-# One-command stack: `docker compose up --build`
-#   - postgres : ledger storage
-#   - corren   : the programmable ledger API (built from source)  -> :3068
-#   - horizon  : the web UI (built from source, served by nginx)  -> :3078
+# Corren — full stack in one command:  docker compose up --build
 #
-# The Horizon SPA calls the corren API at http://localhost:3068 from the
-# browser, so both ports are published on the host. Assumes the horizon repo
-# sits next to this one as ../horizon.
+#   postgres : shared ledger storage
+#   corren   : the ledger core + FaRl + sharia + guard + lens + WALLETS  -> :3068
+#   horizon  : the dashboard SPA (built, served by nginx)                -> :3078
+#
+# NOTE: there is no separate "wallets" service. Wallets is a module compiled
+# into the corren binary — every money movement goes through the single ledger
+# + Guard chokepoint — so it is served by the corren service itself.
+#
+# Configuration comes from .env (copy .env.example to .env). The Horizon SPA
+# calls the corren API at http://localhost:3068 from the browser, so CORREN_PORT
+# must stay 3068 unless you also change src/lib/ledger.js in horizon.
 version: '3.8'
 
 volumes:
@@ -14,46 +19,50 @@ volumes:
 services:
   postgres:
     image: "postgres:13-alpine"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ledger"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    ports:
-      - "5433:5432"
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: "ledger"
-      POSTGRES_PASSWORD: "ledger"
-      POSTGRES_DB: "ledger"
+      POSTGRES_USER: "${POSTGRES_USER:-ledger}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-ledger}"
+      POSTGRES_DB: "${POSTGRES_DB:-ledger}"
       PGDATA: /data/postgres
     volumes:
       - postgres:/data/postgres
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ledger}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   corren:
     build:
       context: .
     command: ["server", "start"]
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      CORREN_STORAGE_DRIVER: "postgres"
+      CORREN_STORAGE_POSTGRES_CONN_STRING: "postgresql://${POSTGRES_USER:-ledger}:${POSTGRES_PASSWORD:-ledger}@postgres/${POSTGRES_DB:-ledger}"
+      CORREN_SERVER_HTTP_BIND_ADDRESS: "0.0.0.0:3068"
+      CORREN_AUTH_ENABLED: "${CORREN_AUTH_ENABLED:-false}"
+      CORREN_SERVER_HTTP_ADMIN_KEY: "${CORREN_ADMIN_KEY:-}"
+    ports:
+      - "${CORREN_PORT:-3068}:3068"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:3068/_info"]
       interval: 10s
       timeout: 5s
       retries: 5
-    depends_on:
-      postgres:
-        condition: service_healthy
-    ports:
-      - "3068:3068"
-    environment:
-      CORREN_STORAGE_DRIVER: "postgres"
-      CORREN_STORAGE_POSTGRES_CONN_STRING: "postgresql://ledger:ledger@postgres/ledger"
-      CORREN_SERVER_HTTP_BIND_ADDRESS: "0.0.0.0:3068"
-      CORREN_AUTH_ENABLED: "false"
 
   horizon:
     build:
       context: ../horizon
+    restart: unless-stopped
     depends_on:
       corren:
         condition: service_healthy
     ports:
-      - "3078:3078"
+      - "${HORIZON_PORT:-3078}:3078"
