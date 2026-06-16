@@ -1,0 +1,23 @@
+--statement
+CREATE TABLE IF NOT EXISTS wallets (
+  "id"         varchar,
+  "owner"      varchar,
+  "asset"      varchar,
+  "created_at" varchar,
+  "updated_at" varchar,
+  UNIQUE("id")
+);
+--statement
+CREATE TABLE IF NOT EXISTS wallet_holds (
+  "id"          varchar,
+  "wallet_id"   varchar,
+  "asset"       varchar,
+  "amount"      integer,
+  "status"      varchar,
+  "description" varchar,
+  "created_at"  varchar,
+  "updated_at"  varchar,
+  UNIQUE("id")
+);
+--statement
+CREATE INDEX IF NOT EXISTS 'wallet_holds_wallet' ON "wallet_holds" ("wallet_id");

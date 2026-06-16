@@ -8,6 +8,7 @@ import (
 	"github.com/amezianechayer/corren/sharia"
 	"github.com/amezianechayer/corren/storage/postgres"
 	"github.com/amezianechayer/corren/storage/sqlite"
+	"github.com/amezianechayer/corren/wallets"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 )
@@ -31,6 +32,7 @@ type Store interface {
 	sharia.ShariaStore
 	guard.GuardStore
 	analytics.AnalyticsStore
+	wallets.WalletStore
 }
 
 func GetStore(name string) (Store, error) {

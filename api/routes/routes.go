@@ -28,6 +28,7 @@ type Routes struct {
 	guardController       actions.GuardController
 	authController        actions.AuthController
 	lensController        actions.LensController
+	walletController      actions.WalletController
 }
 
 // NewRoutes -
@@ -44,6 +45,7 @@ func NewRoutes(
 	guardController actions.GuardController,
 	authController actions.AuthController,
 	lensController actions.LensController,
+	walletController actions.WalletController,
 ) *Routes {
 	return &Routes{
 		resolver:              resolver,
@@ -58,6 +60,7 @@ func NewRoutes(
 		guardController:       guardController,
 		authController:        authController,
 		lensController:        lensController,
+		walletController:      walletController,
 	}
 }
 
@@ -132,6 +135,18 @@ func (r *Routes) Engine(cc cors.Config) *gin.Engine {
 		ledger.GET("/lens/flows", r.lensController.Flows)
 		ledger.GET("/lens/rollup", r.lensController.Rollup)
 		ledger.GET("/lens/timeseries", r.lensController.TimeSeries)
+
+		// WalletController (user wallets on top of the ledger; Sharia-aware holds)
+		ledger.POST("/wallets", r.walletController.PostWallet)
+		ledger.GET("/wallets", r.walletController.ListWallets)
+		ledger.GET("/wallets/:id", r.walletController.GetWallet)
+		ledger.GET("/wallets/:id/balances", r.walletController.GetBalances)
+		ledger.POST("/wallets/:id/credit", r.walletController.PostCredit)
+		ledger.POST("/wallets/:id/debit", r.walletController.PostDebit)
+		ledger.POST("/wallets/:id/holds", r.walletController.PostHold)
+		ledger.GET("/wallets/:id/holds", r.walletController.ListHolds)
+		ledger.POST("/wallets/:id/holds/:hold_id/capture", r.walletController.PostCaptureHold)
+		ledger.POST("/wallets/:id/holds/:hold_id/void", r.walletController.PostVoidHold)
 	}
 
 	return engine
