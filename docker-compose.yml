@@ -1,3 +1,11 @@
+# One-command stack: `docker compose up --build`
+#   - postgres : ledger storage
+#   - corren   : the programmable ledger API (built from source)  -> :3068
+#   - horizon  : the web UI (built from source, served by nginx)  -> :3078
+#
+# The Horizon SPA calls the corren API at http://localhost:3068 from the
+# browser, so both ports are published on the host. Assumes the horizon repo
+# sits next to this one as ../horizon.
 version: '3.8'
 
 volumes:
@@ -22,7 +30,9 @@ services:
       - postgres:/data/postgres
 
   corren:
-    image: "ghcr.io/amezianechayer/corren:latest"
+    build:
+      context: .
+    command: ["server", "start"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:3068/_info"]
       interval: 10s
@@ -37,14 +47,13 @@ services:
       CORREN_STORAGE_DRIVER: "postgres"
       CORREN_STORAGE_POSTGRES_CONN_STRING: "postgresql://ledger:ledger@postgres/ledger"
       CORREN_SERVER_HTTP_BIND_ADDRESS: "0.0.0.0:3068"
+      CORREN_AUTH_ENABLED: "false"
 
   horizon:
-    image: "ghcr.io/amezianechayer/corren:latest"
-    command: corren ui
+    build:
+      context: ../horizon
     depends_on:
       corren:
         condition: service_healthy
     ports:
       - "3078:3078"
-    environment:
-      CORREN_UI_HTTP_BIND_ADDRESS: "0.0.0.0:3078"

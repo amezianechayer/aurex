@@ -1,0 +1,10 @@
+.git
+*.db
+*.db-wal
+*.db-shm
+*.farl
+coverage.out
+corren
+ledger.db*
+demo
+*.png
