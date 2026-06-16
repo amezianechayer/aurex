@@ -29,6 +29,7 @@ type Routes struct {
 	authController        actions.AuthController
 	lensController        actions.LensController
 	walletController      actions.WalletController
+	paymentController     actions.PaymentController
 }
 
 // NewRoutes -
@@ -46,6 +47,7 @@ func NewRoutes(
 	authController actions.AuthController,
 	lensController actions.LensController,
 	walletController actions.WalletController,
+	paymentController actions.PaymentController,
 ) *Routes {
 	return &Routes{
 		resolver:              resolver,
@@ -61,6 +63,7 @@ func NewRoutes(
 		authController:        authController,
 		lensController:        lensController,
 		walletController:      walletController,
+		paymentController:     paymentController,
 	}
 }
 
@@ -150,6 +153,11 @@ func (r *Routes) Engine(cc cors.Config) *gin.Engine {
 		ledger.DELETE("/wallets/:id/holds/:hold_id", r.walletController.ReleaseHold)
 		ledger.POST("/wallets/:id/holds/:hold_id/capture", r.walletController.PostCaptureHold)
 		ledger.POST("/wallets/:id/holds/:hold_id/void", r.walletController.PostVoidHold)
+
+		// PaymentController (PSP connectors: payin via webhook, payout initiation)
+		ledger.POST("/payments/webhooks/:psp", r.paymentController.PostWebhook)
+		ledger.POST("/payments/payouts", r.paymentController.PostPayout)
+		ledger.GET("/payments", r.paymentController.GetPayments)
 	}
 
 	return engine

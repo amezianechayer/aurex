@@ -15,4 +15,5 @@ var Module = fx.Options(
 	fx.Provide(NewAuthController),
 	fx.Provide(NewLensController),
 	fx.Provide(NewWalletController),
+	fx.Provide(NewPaymentController),
 )

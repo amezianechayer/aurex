@@ -5,6 +5,7 @@ import (
 	"github.com/amezianechayer/corren/core"
 	"github.com/amezianechayer/corren/guard"
 	"github.com/amezianechayer/corren/ledger/query"
+	"github.com/amezianechayer/corren/payments"
 	"github.com/amezianechayer/corren/sharia"
 	"github.com/amezianechayer/corren/storage/postgres"
 	"github.com/amezianechayer/corren/storage/sqlite"
@@ -33,6 +34,7 @@ type Store interface {
 	guard.GuardStore
 	analytics.AnalyticsStore
 	wallets.WalletStore
+	payments.PaymentStore
 }
 
 func GetStore(name string) (Store, error) {
