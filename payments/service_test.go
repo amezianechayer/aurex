@@ -2,6 +2,7 @@ package payments
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/amezianechayer/corren/core"
@@ -13,13 +14,23 @@ import (
 // fakeLedger applies postings with the same non-negative invariant as the real
 // ledger (only @world may go negative), so payin/payout/compensation behave for
 // real.
-type fakeLedger struct{ bal map[string]int64 }
+type fakeLedger struct {
+	bal           map[string]int64
+	failRefPrefix string // if set, Commit fails for any tx whose Reference starts with it
+}
 
 func newFakeLedger() *fakeLedger { return &fakeLedger{bal: map[string]int64{}} }
 
 func acctKey(a, asset string) string { return a + "|" + asset }
 
 func (f *fakeLedger) Commit(ts []core.Transaction) ([]core.Transaction, error) {
+	if f.failRefPrefix != "" {
+		for _, t := range ts {
+			if strings.HasPrefix(t.Reference, f.failRefPrefix) {
+				return nil, fmt.Errorf("ledger commit blocked for %q", t.Reference)
+			}
+		}
+	}
 	work := map[string]int64{}
 	for k, v := range f.bal {
 		work[k] = v
@@ -48,10 +59,25 @@ func (f *fakeLedger) walletBal(walletID, asset string) int64 {
 	return f.bal[acctKey(wallets.MainAccount(walletID), asset)]
 }
 
-type fakeStore struct{ rows map[string]Payment }
+type fakeStore struct {
+	rows map[string]Payment
+	seen map[string]bool // (psp|external_id) for non-empty external_id — mirrors the unique index
+}
 
-func newFakeStore() *fakeStore { return &fakeStore{rows: map[string]Payment{}} }
-func (s *fakeStore) SavePayment(p Payment) error   { s.rows[p.ID] = p; return nil }
+func newFakeStore() *fakeStore {
+	return &fakeStore{rows: map[string]Payment{}, seen: map[string]bool{}}
+}
+func (s *fakeStore) SavePayment(p Payment) error {
+	if p.ExternalID != "" {
+		k := p.PSP + "|" + p.ExternalID
+		if s.seen[k] {
+			return fmt.Errorf("UNIQUE constraint failed: payments.psp, payments.external_id")
+		}
+		s.seen[k] = true
+	}
+	s.rows[p.ID] = p
+	return nil
+}
 func (s *fakeStore) UpdatePayment(p Payment) error { s.rows[p.ID] = p; return nil }
 func (s *fakeStore) GetPayment(id string) (Payment, error) {
 	p, ok := s.rows[id]
@@ -215,5 +241,47 @@ func TestPayoutUnknownPSP(t *testing.T) {
 	pe, ok := err.(*Error)
 	if !ok || pe.Code != ErrUnknownPSP {
 		t.Fatalf("expected ERR_UNKNOWN_PSP, got %v", err)
+	}
+}
+
+// C1: a redelivered webhook (same external_id) credits the wallet exactly once.
+func TestWebhookReplayCreditsOnce(t *testing.T) {
+	conn := &fakeConn{event: Event{Type: EventPaymentSucceeded, PSP: "fake", WalletID: "w1", Asset: asset, Amount: 100000, ExternalID: "pi_dup"}}
+	svc, led, st := newSvc(conn)
+
+	if _, err := svc.HandleWebhook("fake", []byte("{}"), "sig"); err != nil {
+		t.Fatalf("first delivery: %v", err)
+	}
+	// PSP redelivers the identical event
+	if _, err := svc.HandleWebhook("fake", []byte("{}"), "sig"); err != nil {
+		t.Fatalf("replay should be an idempotent no-op, got: %v", err)
+	}
+	if led.walletBal("w1", asset) != 100000 {
+		t.Fatalf("expected wallet credited exactly once (100000), got %d", led.walletBal("w1", asset))
+	}
+	if len(st.rows) != 1 {
+		t.Fatalf("expected exactly one payment row, got %d", len(st.rows))
+	}
+}
+
+// C2: if the PSP fails AND the compensation reversal also fails, the wallet is
+// left debited and the caller gets ERR_COMPENSATION_FAILED (not a silent loss).
+func TestPayoutCompensationFailure(t *testing.T) {
+	conn := &fakeConn{payoutErr: fmt.Errorf("stripe 500")}
+	svc, led, _ := newSvc(conn)
+	led.setWallet("w1", asset, 100000)
+	led.failRefPrefix = "compensate:" // the reversal posting will be rejected
+
+	rec, err := svc.CreatePayout("fake", "w1", asset, "acct_bank", 30000)
+	pe, ok := err.(*Error)
+	if !ok || pe.Code != ErrCompensationFailed {
+		t.Fatalf("expected ERR_COMPENSATION_FAILED, got %v", err)
+	}
+	// funds remain debited (the whole point of the alert): 100000 - 30000
+	if led.walletBal("w1", asset) != 70000 {
+		t.Fatalf("expected wallet still debited at 70000 after failed compensation, got %d", led.walletBal("w1", asset))
+	}
+	if rec.Status != StatusFailed {
+		t.Fatalf("expected payment marked failed, got %s", rec.Status)
 	}
 }

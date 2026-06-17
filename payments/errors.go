@@ -11,6 +11,10 @@ const (
 	ErrInsufficientFunds = "ERR_INSUFFICIENT_FUNDS"
 	ErrPSPUnavailable    = "ERR_PSP_UNAVAILABLE"
 	ErrNotFound          = "ERR_NOT_FOUND"
+	ErrInternal          = "ERR_INTERNAL"
+	// ErrCompensationFailed: a payout debit committed but the reversal failed —
+	// funds are debited and not returned. Needs manual reconciliation; alert on it.
+	ErrCompensationFailed = "ERR_COMPENSATION_FAILED"
 )
 
 type Error struct {

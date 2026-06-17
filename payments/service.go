@@ -1,6 +1,7 @@
 package payments
 
 import (
+	"log"
 	"strings"
 
 	"github.com/amezianechayer/corren/core"
@@ -61,16 +62,41 @@ func (s *Service) HandleWebhook(pspName string, payload []byte, signature string
 	if ev.WalletID == "" {
 		return Event{}, newError(ErrInvalidPayload, "event carries no wallet_id")
 	}
-	if err := s.commit(payinPostings(pspName, ev.WalletID, ev.Asset, ev.Amount), generateID("payin_")); err != nil {
-		return Event{}, err // wallet/guard error surfaced to the caller
-	}
+
 	ts := now()
-	_ = s.store.SavePayment(Payment{
+	rec := Payment{
 		ID: generateID("pay_"), PSP: pspName, Direction: DirectionPayin,
 		WalletID: ev.WalletID, Asset: ev.Asset, Amount: ev.Amount,
-		Status: StatusSucceeded, Reference: ev.Reference, ExternalID: ev.ExternalID,
+		Status: StatusPending, Reference: ev.Reference, ExternalID: ev.ExternalID,
 		CreatedAt: ts, UpdatedAt: ts,
-	})
+	}
+	// Idempotency: PSPs redeliver webhooks. Reserve (psp, external_id) by writing
+	// the record BEFORE crediting — a redelivery collides on the unique index and
+	// is acknowledged without a second credit (C1). A genuine store error (not a
+	// duplicate) aborts before any money moves.
+	if ev.ExternalID != "" {
+		if err := s.store.SavePayment(rec); err != nil {
+			if isDuplicateErr(err) {
+				return ev, nil // already settled — idempotent no-op
+			}
+			return Event{}, newError(ErrInternal, "cannot record payin: "+err.Error())
+		}
+	}
+	if err := s.commit(payinPostings(pspName, ev.WalletID, ev.Asset, ev.Amount), generateID("payin_")); err != nil {
+		if ev.ExternalID != "" {
+			rec.Status = StatusFailed
+			rec.UpdatedAt = now()
+			_ = s.store.UpdatePayment(rec)
+		}
+		return Event{}, err // wallet/guard error surfaced to the caller
+	}
+	rec.Status = StatusSucceeded
+	rec.UpdatedAt = now()
+	if ev.ExternalID != "" {
+		_ = s.store.UpdatePayment(rec)
+	} else {
+		_ = s.store.SavePayment(rec)
+	}
 	return ev, nil
 }
 
@@ -100,13 +126,26 @@ func (s *Service) CreatePayout(pspName, walletID, asset, destination string, amo
 		Asset: asset, Amount: amount, Status: StatusPending, Reference: ref,
 		CreatedAt: ts, UpdatedAt: ts,
 	}
-	_ = s.store.SavePayment(rec)
+	// Can't record the payout → reverse the debit and abort BEFORE calling the
+	// PSP, so we never pay out an unrecorded transfer (M1).
+	if err := s.store.SavePayment(rec); err != nil {
+		return Payment{}, s.reverse(pspName, walletID, asset, amount, ref, "cannot record payout", err)
+	}
 
 	// 2. initiate at the PSP
 	po, err := conn.CreatePayout(amount, asset, destination, ref)
 	if err != nil {
-		// compensate: the funds never reached the bank, so reverse them back in
-		_ = s.commit(payinPostings(pspName, walletID, asset, amount), "compensate:"+ref)
+		// compensate: the funds never reached the bank, reverse them back in. If
+		// the reversal ALSO fails the wallet is debited with nothing paid out —
+		// surface a distinct error so monitoring can alert for manual recon (C2).
+		if cerr := s.commit(payinPostings(pspName, walletID, asset, amount), "compensate:"+ref); cerr != nil {
+			log.Printf("CRITICAL payments: payout failed AND compensation failed psp=%s wallet=%s amount=%d ref=%s psp_err=%v compensate_err=%v",
+				pspName, walletID, amount, ref, err, cerr)
+			rec.Status = StatusFailed
+			rec.UpdatedAt = now()
+			_ = s.store.UpdatePayment(rec)
+			return rec, &Error{Code: ErrCompensationFailed, Message: "payout failed and compensation failed — funds debited, manual reconciliation required: " + cerr.Error(), PSP: pspName}
+		}
 		rec.Status = StatusFailed
 		rec.UpdatedAt = now()
 		_ = s.store.UpdatePayment(rec)
@@ -120,8 +159,27 @@ func (s *Service) CreatePayout(pspName, walletID, asset, destination string, amo
 	return rec, nil
 }
 
+// reverse credits a just-committed payout debit back to the wallet. If the
+// reversal itself fails, the funds are stranded debited — return the distinct
+// ErrCompensationFailed and log for manual reconciliation.
+func (s *Service) reverse(pspName, walletID, asset string, amount int64, ref, why string, cause error) error {
+	if cerr := s.commit(payinPostings(pspName, walletID, asset, amount), "reverse:"+ref); cerr != nil {
+		log.Printf("CRITICAL payments: %s AND reversal failed psp=%s wallet=%s amount=%d ref=%s cause=%v reverse_err=%v",
+			why, pspName, walletID, amount, ref, cause, cerr)
+		return &Error{Code: ErrCompensationFailed, Message: why + " and reversal failed — funds debited, manual reconciliation required: " + cerr.Error(), PSP: pspName}
+	}
+	return newError(ErrInternal, why+", debit reversed: "+cause.Error())
+}
+
 func (s *Service) ListPayments(limit, offset int) ([]Payment, error) {
 	return s.store.ListPayments(limit, offset)
+}
+
+// isDuplicateErr reports whether a store error is a unique-constraint violation
+// (used as the webhook idempotency gate).
+func isDuplicateErr(err error) bool {
+	s := strings.ToLower(err.Error())
+	return strings.Contains(s, "unique") || strings.Contains(s, "duplicate")
 }
 
 // mapCommitErr turns the ledger's insufficient-balance error into a typed
