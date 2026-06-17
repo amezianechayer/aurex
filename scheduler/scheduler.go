@@ -2,13 +2,12 @@ package scheduler
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"time"
 
+	csharia "github.com/amezianechayer/corren-sharia"
 	"github.com/amezianechayer/corren/flows"
 	"github.com/amezianechayer/corren/ledger"
-	"github.com/amezianechayer/corren/sharia"
 	"github.com/amezianechayer/corren/shariawire"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
@@ -99,47 +98,13 @@ func (s *Scheduler) tick() {
 	}
 }
 
-// RunOnce scans one ledger for pending installments past their grace
-// period on SOLD contracts, marks them overdue and journalizes each.
-// Returns the number of installments marked.
+// RunOnce marks overdue installments for one ledger by delegating to the
+// corren-sharia engine on its store (same database). Thin wrapper: the sharia
+// scheduling logic lives in corren-sharia.RunOverdue.
 func RunOnce(l *ledger.Ledger, nowRFC3339 string, graceDays int) (int, error) {
-	store := l.Store()
-
-	due, err := store.FindDue(nowRFC3339, graceDays)
+	store, err := shariawire.StoreFor(l)
 	if err != nil {
 		return 0, err
 	}
-
-	marked := 0
-	for _, item := range due {
-		c, err := store.GetContract(item.ContractID)
-		if err != nil {
-			return marked, err
-		}
-		if c.State != sharia.StateSold {
-			continue
-		}
-
-		if err := store.MarkInstallment(item.ContractID, item.Seq, sharia.StatusOverdue, -1, ""); err != nil {
-			return marked, err
-		}
-
-		payload, _ := json.Marshal(map[string]interface{}{
-			"seq": item.Seq, "due_date": item.DueDate, "amount": item.Amount, "grace_days": graceDays,
-		})
-		if _, err := sharia.AppendChainedAudit(store, sharia.AuditEvent{
-			ContractID:  item.ContractID,
-			Event:       sharia.EventOverdue,
-			Decision:    sharia.DecisionAllowed,
-			StandardRef: sharia.RefSS3,
-			TxID:        -1,
-			Payload:     string(payload),
-			CreatedAt:   nowRFC3339,
-		}); err != nil {
-			return marked, err
-		}
-		marked++
-	}
-
-	return marked, nil
+	return csharia.RunOverdue(store, nowRFC3339, graceDays)
 }

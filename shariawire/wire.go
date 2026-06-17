@@ -71,18 +71,38 @@ func toChain(t core.Transaction) chain.Transaction {
 var (
 	mu      sync.Mutex
 	engines = map[string]*csharia.Engine{}
+	stores  = map[string]csharia.ShariaStore{}
 )
 
-// EngineFor returns the corren-sharia engine for a ledger (cached per ledger so
-// the contract locks and the store connection survive across requests), backed
-// by a corren-sharia store on the same database plus the ledger adapter.
+// StoreFor returns the corren-sharia store for a ledger (cached per ledger so
+// the DB connection survives across requests and is shared with the engine).
+func StoreFor(l *ledger.Ledger) (csharia.ShariaStore, error) {
+	mu.Lock()
+	defer mu.Unlock()
+	return storeForLocked(l.Name())
+}
+
+func storeForLocked(name string) (csharia.ShariaStore, error) {
+	if s, ok := stores[name]; ok {
+		return s, nil
+	}
+	s, err := newStore(name)
+	if err != nil {
+		return nil, err
+	}
+	stores[name] = s
+	return s, nil
+}
+
+// EngineFor returns the corren-sharia engine for a ledger (cached), backed by
+// the same store StoreFor returns plus the ledger adapter.
 func EngineFor(l *ledger.Ledger) (*csharia.Engine, error) {
 	mu.Lock()
 	defer mu.Unlock()
 	if e, ok := engines[l.Name()]; ok {
 		return e, nil
 	}
-	store, err := newStore(l.Name())
+	store, err := storeForLocked(l.Name())
 	if err != nil {
 		return nil, err
 	}
