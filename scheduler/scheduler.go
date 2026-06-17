@@ -9,6 +9,7 @@ import (
 	"github.com/amezianechayer/corren/flows"
 	"github.com/amezianechayer/corren/ledger"
 	"github.com/amezianechayer/corren/sharia"
+	"github.com/amezianechayer/corren/shariawire"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
 )
@@ -92,7 +93,9 @@ func (s *Scheduler) tick() {
 		}
 
 		// Orchestration: fire due scheduled flows and resume waiting instances.
-		flows.NewEngine(l, sharia.NewEngine(l, l.Store()), l.Store()).RunDue(now)
+		if she, eerr := shariawire.EngineFor(l); eerr == nil {
+			flows.NewEngine(l, she, l.Store()).RunDue(now)
+		}
 	}
 }
 

@@ -6,23 +6,28 @@ import (
 
 	"github.com/amezianechayer/corren/flows"
 	"github.com/amezianechayer/corren/ledger"
-	"github.com/amezianechayer/corren/sharia"
+	"github.com/amezianechayer/corren/shariawire"
 	"github.com/gin-gonic/gin"
 )
 
 // FlowController exposes the orchestration engine. Each handler builds a
-// flows.Engine bound to the request's ledger + its sharia engine, so steps run
-// against the right ledger (and through the Guard).
+// flows.Engine bound to the request's ledger and the corren-sharia engine
+// (resolved via shariawire), so steps run against the right ledger (through the
+// Guard) and the right contract engine.
 type FlowController struct {
 	BaseController
 }
 
 func NewFlowController() FlowController { return FlowController{} }
 
-func (ctl *FlowController) engine(c *gin.Context) *flows.Engine {
+func (ctl *FlowController) engine(c *gin.Context) (*flows.Engine, error) {
 	l, _ := c.Get("ledger")
 	led := l.(*ledger.Ledger)
-	return flows.NewEngine(led, sharia.NewEngine(led, led.Store()), led.Store())
+	she, err := shariawire.EngineFor(led)
+	if err != nil {
+		return nil, err
+	}
+	return flows.NewEngine(led, she, led.Store()), nil
 }
 
 func (ctl *FlowController) responseFlowError(c *gin.Context, err error) {
@@ -45,12 +50,17 @@ type createFlowRequest struct {
 }
 
 func (ctl *FlowController) PostFlow(c *gin.Context) {
+	eng, err := ctl.engine(c)
+	if err != nil {
+		ctl.responseError(c, http.StatusInternalServerError, err)
+		return
+	}
 	var req createFlowRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		ctl.responseFlowError(c, &flows.Error{Code: flows.ErrInvalidParams, Message: "invalid request body"})
 		return
 	}
-	f, err := ctl.engine(c).CreateFlow(req.Name, req.Trigger, req.Schedule, req.Steps)
+	f, err := eng.CreateFlow(req.Name, req.Trigger, req.Schedule, req.Steps)
 	if err != nil {
 		ctl.responseFlowError(c, err)
 		return
@@ -59,7 +69,12 @@ func (ctl *FlowController) PostFlow(c *gin.Context) {
 }
 
 func (ctl *FlowController) ListFlows(c *gin.Context) {
-	list, err := ctl.engine(c).ListFlows()
+	eng, err := ctl.engine(c)
+	if err != nil {
+		ctl.responseError(c, http.StatusInternalServerError, err)
+		return
+	}
+	list, err := eng.ListFlows()
 	if err != nil {
 		ctl.responseFlowError(c, err)
 		return
@@ -68,7 +83,12 @@ func (ctl *FlowController) ListFlows(c *gin.Context) {
 }
 
 func (ctl *FlowController) GetFlow(c *gin.Context) {
-	f, err := ctl.engine(c).GetFlow(c.Param("id"))
+	eng, err := ctl.engine(c)
+	if err != nil {
+		ctl.responseError(c, http.StatusInternalServerError, err)
+		return
+	}
+	f, err := eng.GetFlow(c.Param("id"))
 	if err != nil {
 		ctl.responseFlowError(c, err)
 		return
@@ -78,12 +98,17 @@ func (ctl *FlowController) GetFlow(c *gin.Context) {
 
 // PostTrigger starts a manual run; the whole request body is the flow input.
 func (ctl *FlowController) PostTrigger(c *gin.Context) {
+	eng, err := ctl.engine(c)
+	if err != nil {
+		ctl.responseError(c, http.StatusInternalServerError, err)
+		return
+	}
 	body, _ := c.GetRawData()
 	var input json.RawMessage
 	if len(body) > 0 {
 		input = json.RawMessage(body)
 	}
-	inst, err := ctl.engine(c).Trigger(c.Param("id"), input)
+	inst, err := eng.Trigger(c.Param("id"), input)
 	if err != nil {
 		if fe, ok := err.(*flows.Error); ok && fe.Code == flows.ErrNotFound {
 			ctl.responseFlowError(c, err)
@@ -98,11 +123,16 @@ func (ctl *FlowController) PostTrigger(c *gin.Context) {
 }
 
 func (ctl *FlowController) GetInstances(c *gin.Context) {
-	if _, err := ctl.engine(c).GetFlow(c.Param("id")); err != nil {
+	eng, err := ctl.engine(c)
+	if err != nil {
+		ctl.responseError(c, http.StatusInternalServerError, err)
+		return
+	}
+	if _, err := eng.GetFlow(c.Param("id")); err != nil {
 		ctl.responseFlowError(c, err)
 		return
 	}
-	list, err := ctl.engine(c).ListInstances(c.Param("id"))
+	list, err := eng.ListInstances(c.Param("id"))
 	if err != nil {
 		ctl.responseFlowError(c, err)
 		return

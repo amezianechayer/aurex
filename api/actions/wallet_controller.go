@@ -8,7 +8,7 @@ import (
 	"github.com/amezianechayer/corren/guard"
 	"github.com/amezianechayer/corren/ledger"
 	"github.com/amezianechayer/corren/ledger/query"
-	"github.com/amezianechayer/corren/sharia"
+	"github.com/amezianechayer/corren/shariawire"
 	"github.com/amezianechayer/corren/wallets"
 	"github.com/gin-gonic/gin"
 )
@@ -143,8 +143,10 @@ func (ctl *WalletController) PostCredit(c *gin.Context) {
 	if len(tx.Postings) > 0 {
 		p := tx.Postings[0]
 		led := ctl.ledgerOf(c)
-		flows.NewEngine(led, sharia.NewEngine(led, led.Store()), led.Store()).
-			OnWalletCredited(c.Param("id"), p.Asset, p.Amount)
+		if she, eerr := shariawire.EngineFor(led); eerr == nil {
+			flows.NewEngine(led, she, led.Store()).
+				OnWalletCredited(c.Param("id"), p.Asset, p.Amount)
+		}
 	}
 	ctl.response(c, http.StatusOK, tx)
 }

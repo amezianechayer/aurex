@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/amezianechayer/corren/core"
-	"github.com/amezianechayer/corren/sharia"
+	sharia "github.com/amezianechayer/corren-sharia"
 	"github.com/amezianechayer/corren/wallets"
 )
 

@@ -2,7 +2,7 @@ package flows
 
 import (
 	"github.com/amezianechayer/corren/core"
-	"github.com/amezianechayer/corren/sharia"
+	sharia "github.com/amezianechayer/corren-sharia"
 )
 
 // FlowStore persists flow definitions and their instances. Implemented by

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/amezianechayer/corren/core"
-	"github.com/amezianechayer/corren/sharia"
+	sharia "github.com/amezianechayer/corren-sharia"
 )
 
 // --- fakes ---
