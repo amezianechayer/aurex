@@ -4,9 +4,11 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/amezianechayer/corren/flows"
 	"github.com/amezianechayer/corren/guard"
 	"github.com/amezianechayer/corren/ledger"
 	"github.com/amezianechayer/corren/ledger/query"
+	"github.com/amezianechayer/corren/sharia"
 	"github.com/amezianechayer/corren/wallets"
 	"github.com/gin-gonic/gin"
 )
@@ -136,6 +138,13 @@ func (ctl *WalletController) PostCredit(c *gin.Context) {
 	if err != nil {
 		ctl.responseWalletError(c, err)
 		return
+	}
+	// Fire wallet_credited flows (best-effort; never disturbs the credit).
+	if len(tx.Postings) > 0 {
+		p := tx.Postings[0]
+		led := ctl.ledgerOf(c)
+		flows.NewEngine(led, sharia.NewEngine(led, led.Store()), led.Store()).
+			OnWalletCredited(c.Param("id"), p.Asset, p.Amount)
 	}
 	ctl.response(c, http.StatusOK, tx)
 }

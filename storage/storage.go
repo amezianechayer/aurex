@@ -3,6 +3,7 @@ package storage
 import (
 	"github.com/amezianechayer/corren/analytics"
 	"github.com/amezianechayer/corren/core"
+	"github.com/amezianechayer/corren/flows"
 	"github.com/amezianechayer/corren/guard"
 	"github.com/amezianechayer/corren/ledger/query"
 	"github.com/amezianechayer/corren/payments"
@@ -35,6 +36,7 @@ type Store interface {
 	analytics.AnalyticsStore
 	wallets.WalletStore
 	payments.PaymentStore
+	flows.FlowStore
 }
 
 func GetStore(name string) (Store, error) {

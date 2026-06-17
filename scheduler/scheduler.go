@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/amezianechayer/corren/flows"
 	"github.com/amezianechayer/corren/ledger"
 	"github.com/amezianechayer/corren/sharia"
 	"github.com/spf13/viper"
@@ -89,6 +90,9 @@ func (s *Scheduler) tick() {
 		if marked > 0 {
 			log.Printf("sharia scheduler: ledger %s: %d installment(s) marked overdue\n", name, marked)
 		}
+
+		// Orchestration: fire due scheduled flows and resume waiting instances.
+		flows.NewEngine(l, sharia.NewEngine(l, l.Store()), l.Store()).RunDue(now)
 	}
 }
 

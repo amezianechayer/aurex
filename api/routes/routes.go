@@ -30,6 +30,7 @@ type Routes struct {
 	lensController        actions.LensController
 	walletController      actions.WalletController
 	paymentController     actions.PaymentController
+	flowController        actions.FlowController
 }
 
 // NewRoutes -
@@ -48,6 +49,7 @@ func NewRoutes(
 	lensController actions.LensController,
 	walletController actions.WalletController,
 	paymentController actions.PaymentController,
+	flowController actions.FlowController,
 ) *Routes {
 	return &Routes{
 		resolver:              resolver,
@@ -64,6 +66,7 @@ func NewRoutes(
 		lensController:        lensController,
 		walletController:      walletController,
 		paymentController:     paymentController,
+		flowController:        flowController,
 	}
 }
 
@@ -158,6 +161,13 @@ func (r *Routes) Engine(cc cors.Config) *gin.Engine {
 		ledger.POST("/payments/webhooks/:psp", r.paymentController.PostWebhook)
 		ledger.POST("/payments/payouts", r.paymentController.PostPayout)
 		ledger.GET("/payments", r.paymentController.GetPayments)
+
+		// FlowController (Sharia-native orchestration)
+		ledger.POST("/flows", r.flowController.PostFlow)
+		ledger.GET("/flows", r.flowController.ListFlows)
+		ledger.GET("/flows/:id", r.flowController.GetFlow)
+		ledger.POST("/flows/:id/trigger", r.flowController.PostTrigger)
+		ledger.GET("/flows/:id/instances", r.flowController.GetInstances)
 	}
 
 	return engine
