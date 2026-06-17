@@ -97,7 +97,10 @@ func newStore(ledgerName string) (csharia.ShariaStore, error) {
 	if viper.GetString("storage.driver") == "postgres" {
 		return cspg.NewStore(viper.GetString("storage.postgres.conn_string"), ledgerName)
 	}
-	dbpath := fmt.Sprintf("file:%s?_journal=WAL", path.Join(
+	// Second connection to the ledger's SQLite file (corren-sharia owns its
+	// tables on the same DB). WAL + a busy timeout let the two pools coexist
+	// without "database is locked". Postgres has no such concern.
+	dbpath := fmt.Sprintf("file:%s?_journal=WAL&_busy_timeout=5000", path.Join(
 		viper.GetString("storage.dir"),
 		fmt.Sprintf("%s_%s.db", viper.GetString("storage.sqlite.db_name"), ledgerName),
 	))
