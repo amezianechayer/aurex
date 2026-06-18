@@ -47,6 +47,15 @@ type Payment struct {
 	ExternalID string `json:"external_id,omitempty"`
 	CreatedAt  string `json:"created_at"`
 	UpdatedAt  string `json:"updated_at"`
+
+	// ClientSecret and RedirectURL are TRANSIENT next-action credentials returned
+	// only when a payin is initiated (CreatePayin): the client uses them to
+	// complete the charge — ClientSecret with Stripe.js, RedirectURL for a
+	// hosted-page PSP (PayTabs). They are deliberately NOT persisted (the store
+	// writes only the fixed column set), so they never appear when a payment is
+	// read back.
+	ClientSecret string `json:"client_secret,omitempty"`
+	RedirectURL  string `json:"redirect_url,omitempty"`
 }
 
 // Payout is the PSP-side result of initiating an outbound payment.

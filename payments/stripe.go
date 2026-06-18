@@ -124,7 +124,12 @@ func (s *Stripe) CreatePayment(amount int64, asset, ref string) (Payment, error)
 	if err != nil {
 		return Payment{}, err
 	}
-	return Payment{ExternalID: stringField(res, "id"), Status: StatusPending, Amount: amount, Asset: asset, Reference: ref}, nil
+	return Payment{
+		ExternalID: stringField(res, "id"), Status: StatusPending,
+		Amount: amount, Asset: asset, Reference: ref,
+		// client_secret lets the client confirm the PaymentIntent (Stripe.js).
+		ClientSecret: stringField(res, "client_secret"),
+	}, nil
 }
 
 func (s *Stripe) CreatePayout(amount int64, asset, dest, ref string) (Payout, error) {

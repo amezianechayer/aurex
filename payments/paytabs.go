@@ -114,7 +114,12 @@ func (p *PayTabs) CreatePayment(amount int64, asset, ref string) (Payment, error
 	if err != nil {
 		return Payment{}, err
 	}
-	return Payment{ExternalID: stringField(res, "tran_ref"), Status: StatusPending, Amount: amount, Asset: asset, Reference: ref}, nil
+	return Payment{
+		ExternalID: stringField(res, "tran_ref"), Status: StatusPending,
+		Amount: amount, Asset: asset, Reference: ref,
+		// PayTabs is a hosted-page PSP: the client is redirected here to pay.
+		RedirectURL: stringField(res, "redirect_url"),
+	}, nil
 }
 
 func (p *PayTabs) CreatePayout(amount int64, asset, dest, ref string) (Payout, error) {

@@ -69,6 +69,30 @@ func TestStripeCreatePayoutSuccess(t *testing.T) {
 	}
 }
 
+func TestStripeCreatePaymentReturnsClientSecret(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/payment_intents" {
+			w.WriteHeader(404)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"id":"pi_live_1","client_secret":"pi_live_1_secret_abc","object":"payment_intent"}`))
+	}))
+	defer srv.Close()
+
+	s := NewStripe(StripeConfig{SecretKey: "sk_test", BaseURL: srv.URL, HTTP: srv.Client()})
+	p, err := s.CreatePayment(100000, "AED.2", "pi_ref")
+	if err != nil {
+		t.Fatalf("create payment: %v", err)
+	}
+	if p.ExternalID != "pi_live_1" || p.ClientSecret != "pi_live_1_secret_abc" {
+		t.Fatalf("expected external id + client secret, got %+v", p)
+	}
+	if p.Status != StatusPending {
+		t.Fatalf("expected pending status, got %s", p.Status)
+	}
+}
+
 func TestStripeCreatePayoutError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
@@ -127,6 +151,27 @@ func TestPayTabsWebhookValidSignature(t *testing.T) {
 	}
 	if ev.Type != EventPaymentSucceeded || ev.WalletID != "wlt_alice" || ev.Asset != "AED.2" || ev.Amount != 30000 {
 		t.Fatalf("unexpected paytabs event: %+v", ev)
+	}
+}
+
+func TestPayTabsCreatePaymentReturnsRedirectURL(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/payment/request" {
+			w.WriteHeader(404)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"tran_ref":"TST22","redirect_url":"https://secure.paytabs.com/payment/page/abc"}`))
+	}))
+	defer srv.Close()
+
+	p := NewPayTabs(PayTabsConfig{ServerKey: "SJKEY", ProfileID: "123", BaseURL: srv.URL, HTTP: srv.Client()})
+	pay, err := p.CreatePayment(30000, "AED.2", "topup-9")
+	if err != nil {
+		t.Fatalf("create payment: %v", err)
+	}
+	if pay.ExternalID != "TST22" || pay.RedirectURL != "https://secure.paytabs.com/payment/page/abc" {
+		t.Fatalf("expected tran_ref + redirect_url, got %+v", pay)
 	}
 }
 

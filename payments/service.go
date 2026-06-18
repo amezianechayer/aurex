@@ -164,6 +164,11 @@ func (s *Service) CreatePayin(pspName, walletID, asset, reference string, amount
 		}
 		return Payment{}, newError(ErrInternal, "cannot record payin: "+err.Error())
 	}
+	// Surface the PSP's next-action credentials on the RETURNED record only. They
+	// are set after SavePayment so they are never persisted (the store wrote the
+	// record above without them) — the client completes the charge with these.
+	rec.ClientSecret = po.ClientSecret
+	rec.RedirectURL = po.RedirectURL
 	return rec, nil
 }
 

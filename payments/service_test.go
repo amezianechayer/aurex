@@ -113,7 +113,7 @@ type fakeConn struct {
 
 func (c *fakeConn) Name() string { return "fake" }
 func (c *fakeConn) CreatePayment(amount int64, asset, ref string) (Payment, error) {
-	return Payment{ExternalID: "pi_fake", Status: StatusPending, Amount: amount, Asset: asset, Reference: ref}, nil
+	return Payment{ExternalID: "pi_fake", Status: StatusPending, Amount: amount, Asset: asset, Reference: ref, ClientSecret: "pi_fake_secret"}, nil
 }
 func (c *fakeConn) CreatePayout(amount int64, asset, dest, ref string) (Payout, error) {
 	c.payoutCalls++
@@ -295,6 +295,14 @@ func TestPayinInitiatesPendingWithoutCrediting(t *testing.T) {
 	}
 	if len(st.rows) != 1 || st.rows[rec.ID].Status != StatusPending {
 		t.Fatal("expected exactly one pending payment row")
+	}
+	// the next-action credential is returned to the caller …
+	if rec.ClientSecret != "pi_fake_secret" {
+		t.Fatalf("expected the client secret on the returned record, got %q", rec.ClientSecret)
+	}
+	// … but never persisted.
+	if st.rows[rec.ID].ClientSecret != "" {
+		t.Fatal("the client secret must NOT be persisted")
 	}
 }
 
