@@ -3,7 +3,7 @@ module github.com/amezianechayer/corren
 go 1.16
 
 require (
-	github.com/amezianechayer/corren-sharia v0.0.0
+	github.com/amezianechayer/corren-sharia v0.1.0
 	github.com/amezianechayer/corren-vm v0.1.13
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-contrib/logger v0.2.0
@@ -26,5 +26,3 @@ require (
 	golang.org/x/sys v0.0.0-20211124211545-fe61309f8881 // indirect
 	golang.org/x/tools v0.1.7 // indirect
 )
-
-replace github.com/amezianechayer/corren-sharia => ../corren-sharia
