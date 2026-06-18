@@ -11,6 +11,7 @@ const (
 	ErrInsufficientFunds = "ERR_INSUFFICIENT_FUNDS"
 	ErrPSPUnavailable    = "ERR_PSP_UNAVAILABLE"
 	ErrNotFound          = "ERR_NOT_FOUND"
+	ErrDuplicate         = "ERR_DUPLICATE"
 	ErrInternal          = "ERR_INTERNAL"
 	// ErrCompensationFailed: a payout debit committed but the reversal failed —
 	// funds are debited and not returned. Needs manual reconciliation; alert on it.
@@ -38,6 +39,8 @@ func (e *Error) HTTPStatus() int {
 		return http.StatusUnauthorized
 	case ErrUnknownPSP, ErrNotFound:
 		return http.StatusNotFound
+	case ErrDuplicate:
+		return http.StatusConflict
 	case ErrInsufficientFunds:
 		return http.StatusUnprocessableEntity
 	case ErrPSPUnavailable:

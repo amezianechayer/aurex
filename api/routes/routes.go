@@ -157,7 +157,8 @@ func (r *Routes) Engine(cc cors.Config) *gin.Engine {
 		ledger.POST("/wallets/:id/holds/:hold_id/capture", r.walletController.PostCaptureHold)
 		ledger.POST("/wallets/:id/holds/:hold_id/void", r.walletController.PostVoidHold)
 
-		// PaymentController (PSP connectors: payin via webhook, payout initiation)
+		// PaymentController (PSP connectors: payin initiation + webhook, payout)
+		ledger.POST("/payments/payins", r.paymentController.PostPayin)
 		ledger.POST("/payments/webhooks/:psp", r.paymentController.PostWebhook)
 		ledger.POST("/payments/payouts", r.paymentController.PostPayout)
 		ledger.GET("/payments", r.paymentController.GetPayments)

@@ -8,6 +8,10 @@ type PaymentStore interface {
 	SavePayment(p Payment) error
 	UpdatePayment(p Payment) error
 	GetPayment(id string) (Payment, error)
+	// GetPaymentByExternalID resolves a payment by its (psp, external_id) pair —
+	// the natural key a webhook carries. Used to reconcile an inbound webhook with
+	// a payin initiation that is already recorded as pending.
+	GetPaymentByExternalID(psp, externalID string) (Payment, error)
 	ListPayments(limit, offset int) ([]Payment, error)
 }
 

@@ -111,6 +111,31 @@ func (ctl *PaymentController) PostPayout(c *gin.Context) {
 	ctl.response(c, http.StatusOK, rec)
 }
 
+type payinRequest struct {
+	PSP       string `json:"psp"`
+	WalletID  string `json:"wallet_id"`
+	Asset     string `json:"asset"`
+	Amount    int64  `json:"amount"`
+	Reference string `json:"reference"`
+}
+
+// PostPayin initiates an inbound payment / top-up (POST /payments/payins). The
+// PSP intent is created and recorded as pending; the wallet is credited later,
+// when the PSP confirms via its webhook.
+func (ctl *PaymentController) PostPayin(c *gin.Context) {
+	var req payinRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ctl.responsePaymentError(c, &payments.Error{Code: payments.ErrInvalidParams, Message: "invalid request body"})
+		return
+	}
+	rec, err := ctl.service(c).CreatePayin(req.PSP, req.WalletID, req.Asset, req.Reference, req.Amount)
+	if err != nil {
+		ctl.responsePaymentError(c, err)
+		return
+	}
+	ctl.response(c, http.StatusCreated, rec)
+}
+
 // GetPayments lists payment records (GET /payments).
 func (ctl *PaymentController) GetPayments(c *gin.Context) {
 	limit, err := strconv.Atoi(c.DefaultQuery("limit", "50"))

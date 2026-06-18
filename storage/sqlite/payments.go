@@ -46,6 +46,22 @@ func (s *SQLiteStore) GetPayment(id string) (payments.Payment, error) {
 	return p, err
 }
 
+func (s *SQLiteStore) GetPaymentByExternalID(psp, externalID string) (payments.Payment, error) {
+	sb := sqlbuilder.NewSelectBuilder()
+	sb.Select(paymentCols...)
+	sb.From("payments")
+	sb.Where(sb.Equal("psp", psp), sb.Equal("external_id", externalID))
+	sqlq, args := sb.BuildWithFlavor(sqlbuilder.SQLite)
+
+	var p payments.Payment
+	err := s.db.QueryRow(sqlq, args...).Scan(
+		&p.ID, &p.PSP, &p.Direction, &p.WalletID, &p.Asset, &p.Amount, &p.Status, &p.Reference, &p.ExternalID, &p.CreatedAt, &p.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return payments.Payment{}, fmt.Errorf("payment not found: %s/%s", psp, externalID)
+	}
+	return p, err
+}
+
 func (s *SQLiteStore) ListPayments(limit, offset int) ([]payments.Payment, error) {
 	sb := sqlbuilder.NewSelectBuilder()
 	sb.Select(paymentCols...)

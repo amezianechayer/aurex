@@ -47,6 +47,22 @@ func (s *PGStore) GetPayment(id string) (payments.Payment, error) {
 	return p, err
 }
 
+func (s *PGStore) GetPaymentByExternalID(psp, externalID string) (payments.Payment, error) {
+	sb := sqlbuilder.NewSelectBuilder()
+	sb.Select(paymentCols...)
+	sb.From(s.table("payments"))
+	sb.Where(sb.Equal("psp", psp), sb.Equal("external_id", externalID))
+	sqlq, args := sb.BuildWithFlavor(sqlbuilder.PostgreSQL)
+
+	var p payments.Payment
+	err := s.Conn().QueryRow(context.Background(), sqlq, args...).Scan(
+		&p.ID, &p.PSP, &p.Direction, &p.WalletID, &p.Asset, &p.Amount, &p.Status, &p.Reference, &p.ExternalID, &p.CreatedAt, &p.UpdatedAt)
+	if err == pgx.ErrNoRows {
+		return payments.Payment{}, fmt.Errorf("payment not found: %s/%s", psp, externalID)
+	}
+	return p, err
+}
+
 func (s *PGStore) ListPayments(limit, offset int) ([]payments.Payment, error) {
 	sb := sqlbuilder.NewSelectBuilder()
 	sb.Select(paymentCols...)

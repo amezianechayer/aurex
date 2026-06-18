@@ -79,6 +79,14 @@ func (s *fakeStore) SavePayment(p Payment) error {
 	return nil
 }
 func (s *fakeStore) UpdatePayment(p Payment) error { s.rows[p.ID] = p; return nil }
+func (s *fakeStore) GetPaymentByExternalID(psp, externalID string) (Payment, error) {
+	for _, p := range s.rows {
+		if p.PSP == psp && p.ExternalID == externalID {
+			return p, nil
+		}
+	}
+	return Payment{}, fmt.Errorf("not found")
+}
 func (s *fakeStore) GetPayment(id string) (Payment, error) {
 	p, ok := s.rows[id]
 	if !ok {
@@ -261,6 +269,81 @@ func TestWebhookReplayCreditsOnce(t *testing.T) {
 	}
 	if len(st.rows) != 1 {
 		t.Fatalf("expected exactly one payment row, got %d", len(st.rows))
+	}
+}
+
+// --- payin (top-up) initiation ---
+
+// CreatePayin records a pending payin and does NOT move money: the external
+// funds are not in yet, so crediting now would be fictitious.
+func TestPayinInitiatesPendingWithoutCrediting(t *testing.T) {
+	conn := &fakeConn{}
+	svc, led, st := newSvc(conn)
+
+	rec, err := svc.CreatePayin("fake", "w1", asset, "", 100000)
+	if err != nil {
+		t.Fatalf("payin: %v", err)
+	}
+	if rec.Direction != DirectionPayin || rec.Status != StatusPending {
+		t.Fatalf("expected a pending payin, got %+v", rec)
+	}
+	if rec.ExternalID != "pi_fake" {
+		t.Fatalf("expected the PSP external id on the record, got %q", rec.ExternalID)
+	}
+	if led.walletBal("w1", asset) != 0 {
+		t.Fatalf("no money must move at initiation, wallet=%d", led.walletBal("w1", asset))
+	}
+	if len(st.rows) != 1 || st.rows[rec.ID].Status != StatusPending {
+		t.Fatal("expected exactly one pending payment row")
+	}
+}
+
+// The webhook reconciles the pending initiation: it credits the wallet once and
+// flips the record to succeeded. A redelivery is an idempotent no-op.
+func TestPayinSettledByWebhookExactlyOnce(t *testing.T) {
+	conn := &fakeConn{event: Event{Type: EventPaymentSucceeded, PSP: "fake", WalletID: "w1", Asset: asset, Amount: 100000, ExternalID: "pi_fake"}}
+	svc, led, st := newSvc(conn)
+
+	rec, err := svc.CreatePayin("fake", "w1", asset, "", 100000)
+	if err != nil {
+		t.Fatalf("payin: %v", err)
+	}
+	if _, err := svc.HandleWebhook("fake", []byte("{}"), "sig"); err != nil {
+		t.Fatalf("webhook: %v", err)
+	}
+	if led.walletBal("w1", asset) != 100000 {
+		t.Fatalf("expected wallet credited 100000, got %d", led.walletBal("w1", asset))
+	}
+	if st.rows[rec.ID].Status != StatusSucceeded {
+		t.Fatalf("expected the initiated payin marked succeeded, got %s", st.rows[rec.ID].Status)
+	}
+	if len(st.rows) != 1 {
+		t.Fatalf("expected exactly one payment row (the initiation, settled), got %d", len(st.rows))
+	}
+	// redelivery: no second credit, no new row
+	if _, err := svc.HandleWebhook("fake", []byte("{}"), "sig"); err != nil {
+		t.Fatalf("redelivery should be a no-op, got %v", err)
+	}
+	if led.walletBal("w1", asset) != 100000 || len(st.rows) != 1 {
+		t.Fatalf("redelivery must not credit again: bal=%d rows=%d", led.walletBal("w1", asset), len(st.rows))
+	}
+}
+
+func TestPayinUnknownPSP(t *testing.T) {
+	svc, _, _ := newSvc(&fakeConn{})
+	_, err := svc.CreatePayin("nope", "w1", asset, "", 1000)
+	pe, ok := err.(*Error)
+	if !ok || pe.Code != ErrUnknownPSP {
+		t.Fatalf("expected ERR_UNKNOWN_PSP, got %v", err)
+	}
+}
+
+func TestPayinInvalidAmount(t *testing.T) {
+	svc, _, _ := newSvc(&fakeConn{})
+	_, err := svc.CreatePayin("fake", "w1", asset, "", 0)
+	pe, ok := err.(*Error)
+	if !ok || pe.Code != ErrInvalidParams {
+		t.Fatalf("expected ERR_INVALID_PARAMS, got %v", err)
 	}
 }
 

@@ -63,6 +63,32 @@ func (s *Service) HandleWebhook(pspName string, payload []byte, signature string
 		return Event{}, newError(ErrInvalidPayload, "event carries no wallet_id")
 	}
 
+	// Reconcile with a payin that was already initiated (recorded as pending by
+	// CreatePayin): settle it once. This is also the redelivery gate — a second
+	// webhook for an already-succeeded payment is an idempotent no-op (C1).
+	if ev.ExternalID != "" {
+		if existing, err := s.store.GetPaymentByExternalID(pspName, ev.ExternalID); err == nil {
+			if existing.Status == StatusSucceeded {
+				return ev, nil // already settled — idempotent no-op
+			}
+			if cerr := s.commit(payinPostings(pspName, ev.WalletID, ev.Asset, ev.Amount), generateID("payin_")); cerr != nil {
+				existing.Status = StatusFailed
+				existing.UpdatedAt = now()
+				_ = s.store.UpdatePayment(existing)
+				return Event{}, cerr
+			}
+			existing.Status = StatusSucceeded
+			existing.UpdatedAt = now()
+			_ = s.store.UpdatePayment(existing)
+			return ev, nil
+		}
+	}
+
+	// No prior record (webhook-only payin, no preceding initiation). Reserve
+	// (psp, external_id) by writing the record BEFORE crediting — a concurrent
+	// redelivery collides on the unique index and is acknowledged without a
+	// second credit. A genuine store error (not a duplicate) aborts before any
+	// money moves.
 	ts := now()
 	rec := Payment{
 		ID: generateID("pay_"), PSP: pspName, Direction: DirectionPayin,
@@ -70,14 +96,10 @@ func (s *Service) HandleWebhook(pspName string, payload []byte, signature string
 		Status: StatusPending, Reference: ev.Reference, ExternalID: ev.ExternalID,
 		CreatedAt: ts, UpdatedAt: ts,
 	}
-	// Idempotency: PSPs redeliver webhooks. Reserve (psp, external_id) by writing
-	// the record BEFORE crediting — a redelivery collides on the unique index and
-	// is acknowledged without a second credit (C1). A genuine store error (not a
-	// duplicate) aborts before any money moves.
 	if ev.ExternalID != "" {
 		if err := s.store.SavePayment(rec); err != nil {
 			if isDuplicateErr(err) {
-				return ev, nil // already settled — idempotent no-op
+				return ev, nil // a concurrent delivery won the reservation
 			}
 			return Event{}, newError(ErrInternal, "cannot record payin: "+err.Error())
 		}
@@ -98,6 +120,51 @@ func (s *Service) HandleWebhook(pspName string, payload []byte, signature string
 		_ = s.store.SavePayment(rec)
 	}
 	return ev, nil
+}
+
+// CreatePayin initiates an inbound payment (a top-up) at the PSP and records it
+// as pending. NO ledger posting happens here: the external money is not in yet,
+// so crediting now would be fictitious. The wallet is credited when the PSP
+// confirms the payment via its webhook (HandleWebhook reconciles by external_id).
+// The returned record carries the PSP external id the client uses to complete
+// the charge.
+func (s *Service) CreatePayin(pspName, walletID, asset, reference string, amount int64) (Payment, error) {
+	conn, ok := s.reg.Get(pspName)
+	if !ok {
+		return Payment{}, &Error{Code: ErrUnknownPSP, Message: "unknown psp: " + pspName, PSP: pspName}
+	}
+	if amount <= 0 {
+		return Payment{}, newError(ErrInvalidParams, "amount must be > 0")
+	}
+	if walletID == "" || asset == "" {
+		return Payment{}, newError(ErrInvalidParams, "wallet_id and asset are required")
+	}
+
+	ref := reference
+	if ref == "" {
+		ref = generateID("pi_")
+	}
+
+	// initiate at the PSP (e.g. a Stripe PaymentIntent); no funds move yet
+	po, err := conn.CreatePayment(amount, asset, ref)
+	if err != nil {
+		return Payment{}, &Error{Code: ErrPSPUnavailable, Message: "payin initiation failed at psp: " + err.Error(), PSP: pspName}
+	}
+
+	ts := now()
+	rec := Payment{
+		ID: generateID("pay_"), PSP: pspName, Direction: DirectionPayin,
+		WalletID: walletID, Asset: asset, Amount: amount,
+		Status: StatusPending, Reference: ref, ExternalID: po.ExternalID,
+		CreatedAt: ts, UpdatedAt: ts,
+	}
+	if err := s.store.SavePayment(rec); err != nil {
+		if isDuplicateErr(err) {
+			return Payment{}, &Error{Code: ErrDuplicate, Message: "a payment with this external id already exists", PSP: pspName}
+		}
+		return Payment{}, newError(ErrInternal, "cannot record payin: "+err.Error())
+	}
+	return rec, nil
 }
 
 // CreatePayout debits the wallet FIRST (the ledger refuses it if the balance is
