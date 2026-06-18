@@ -8,16 +8,17 @@ import (
 	"path"
 	"testing"
 
+	sharia "github.com/amezianechayer/corren-sharia"
 	"github.com/amezianechayer/corren/config"
 	"github.com/amezianechayer/corren/core"
 	"github.com/amezianechayer/corren/ledger"
-	"github.com/amezianechayer/corren/sharia"
+	"github.com/amezianechayer/corren/shariawire"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
 )
 
 // rawParams marshals murabaha params into the json.RawMessage CreateRequest
-// now carries.
+// carries.
 func rawParams(p sharia.MurabahaParams) json.RawMessage {
 	raw, _ := json.Marshal(p)
 	return raw
@@ -48,15 +49,23 @@ func withLedger(t *testing.T, f func(l *ledger.Ledger)) {
 
 func TestRunOnceMarksOverdueOnSoldContractsOnly(t *testing.T) {
 	withLedger(t, func(l *ledger.Ledger) {
-		e := sharia.NewEngine(l, l.Store())
+		// the sharia engine + store come from corren-sharia (via shariawire),
+		// backed by the same database; the engine posts through the ledger.
+		e, err := shariawire.EngineFor(l)
+		if err != nil {
+			t.Fatal(err)
+		}
+		store, err := shariawire.StoreFor(l)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		// fund and drive one contract to SOLD with past due dates
-		_, err := l.Commit([]core.Transaction{{
+		if _, err := l.Commit([]core.Transaction{{
 			Postings: []core.Posting{
 				{Source: core.WORLD, Destination: "@bank:treasury", Asset: "SAR2", Amount: 10000000},
 			},
-		}})
-		if err != nil {
+		}}); err != nil {
 			t.Fatal(err)
 		}
 
@@ -98,7 +107,7 @@ func TestRunOnceMarksOverdueOnSoldContractsOnly(t *testing.T) {
 			t.Fatalf("expected 2 installments marked, got %d", marked)
 		}
 
-		items, err := l.Store().GetSchedule("mur_sched_sold")
+		items, err := store.GetSchedule("mur_sched_sold")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -110,7 +119,7 @@ func TestRunOnceMarksOverdueOnSoldContractsOnly(t *testing.T) {
 		}
 
 		// PROMISE contract untouched
-		items, err = l.Store().GetSchedule("mur_sched_promise")
+		items, err = store.GetSchedule("mur_sched_promise")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -121,7 +130,7 @@ func TestRunOnceMarksOverdueOnSoldContractsOnly(t *testing.T) {
 		}
 
 		// overdue events journalized, chain still valid
-		events, err := l.Store().GetAudit("mur_sched_sold")
+		events, err := store.GetAudit("mur_sched_sold")
 		if err != nil {
 			t.Fatal(err)
 		}

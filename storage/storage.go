@@ -7,7 +7,6 @@ import (
 	"github.com/amezianechayer/corren/guard"
 	"github.com/amezianechayer/corren/ledger/query"
 	"github.com/amezianechayer/corren/payments"
-	"github.com/amezianechayer/corren/sharia"
 	"github.com/amezianechayer/corren/storage/postgres"
 	"github.com/amezianechayer/corren/storage/sqlite"
 	"github.com/amezianechayer/corren/wallets"
@@ -31,7 +30,6 @@ type Store interface {
 	Initialize() error
 	Close()
 
-	sharia.ShariaStore
 	guard.GuardStore
 	analytics.AnalyticsStore
 	wallets.WalletStore

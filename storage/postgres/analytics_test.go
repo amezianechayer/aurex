@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
@@ -8,7 +9,6 @@ import (
 
 	"github.com/amezianechayer/corren/core"
 	"github.com/amezianechayer/corren/guard"
-	"github.com/amezianechayer/corren/sharia"
 	"github.com/spf13/viper"
 )
 
@@ -54,11 +54,9 @@ func seedLensPG(t *testing.T, s *PGStore) {
 	if err := s.SaveTransactions(txs); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SaveContract(sharia.Contract{
-		ID: "c1", Type: sharia.TypeMurabaha,
-		State: sharia.StatePromise, Params: []byte("{}"), TemplateVersion: "x",
-		CreatedAt: "2026-07-01T00:00:00Z", UpdatedAt: "2026-07-01T00:00:00Z",
-	}); err != nil {
+	if _, err := s.Conn().Exec(context.Background(),
+		fmt.Sprintf(`INSERT INTO %s (id, type, state, params, template_version, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7)`, s.table("sharia_contracts")),
+		"c1", "murabaha", "PROMISE", "{}", "x", "2026-07-01T00:00:00Z", "2026-07-01T00:00:00Z"); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.AppendGuardEvent(guard.GuardEvent{

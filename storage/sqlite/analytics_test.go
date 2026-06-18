@@ -7,7 +7,6 @@ import (
 
 	"github.com/amezianechayer/corren/core"
 	"github.com/amezianechayer/corren/guard"
-	"github.com/amezianechayer/corren/sharia"
 	"github.com/spf13/viper"
 )
 
@@ -31,9 +30,8 @@ func seedLens(t *testing.T, s *SQLiteStore) {
 	if err := s.SaveTransactions(txs); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SaveContract(sharia.Contract{ID: "c1", Type: sharia.TypeMurabaha,
-		State: sharia.StatePromise, Params: []byte("{}"), TemplateVersion: "x",
-		CreatedAt: "2026-07-01T00:00:00Z", UpdatedAt: "2026-07-01T00:00:00Z"}); err != nil {
+	if _, err := s.db.Exec(`INSERT INTO sharia_contracts (id, type, state, params, template_version, created_at, updated_at) VALUES (?,?,?,?,?,?,?)`,
+		"c1", "murabaha", "PROMISE", "{}", "x", "2026-07-01T00:00:00Z", "2026-07-01T00:00:00Z"); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.AppendGuardEvent(guard.GuardEvent{RuleID: "r1", Action: guard.ActionDeny,
