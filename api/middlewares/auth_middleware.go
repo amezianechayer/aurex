@@ -38,7 +38,7 @@ func (m AuthMiddleware) AuthMiddleware(engine *gin.Engine) gin.HandlerFunc {
 		}
 
 		path := c.FullPath()
-		if path == "/auth/login" || path == "/healthz" {
+		if path == "/auth/login" || path == "/healthz" || path == "/docs" || path == "/openapi.yaml" {
 			return
 		}
 

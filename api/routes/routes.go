@@ -2,6 +2,7 @@ package routes
 
 import (
 	"github.com/amezianechayer/corren/api/actions"
+	apidocs "github.com/amezianechayer/corren/api/docs"
 	"github.com/amezianechayer/corren/api/middlewares"
 	"github.com/amezianechayer/corren/ledger"
 	"github.com/gin-contrib/cors"
@@ -83,6 +84,9 @@ func (r *Routes) Engine(cc cors.Config) *gin.Engine {
 	)
 
 	engine.GET("/swagger.json", r.configController.GetDocs)
+
+	// OpenAPI 3.0 spec + Swagger UI (public; see auth middleware skip list).
+	apidocs.Register(engine)
 
 	// AuthController
 	authGroup := engine.Group("/auth")

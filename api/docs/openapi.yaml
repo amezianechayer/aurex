@@ -1,0 +1,1010 @@
+openapi: 3.0.3
+info:
+  title: Corren API
+  version: "1.0.0"
+  description: |
+    **Corren** is a programmable Islamic-finance ledger. The whole stack speaks
+    one HTTP API: the FaRl ledger, user wallets, Sharia contracts (Murabaha &
+    Ijarah), PSP payments and orchestration flows.
+
+    ### Conventions
+    - Every resource is **scoped to a ledger**: paths begin with `/{ledger}`
+      (e.g. `/main/wallets`). A ledger is created on first use.
+    - **All monetary amounts are integers** in the asset's minor unit
+      (`AED.2` → `20000` = 200.00 AED). Never floats — no Riba by rounding.
+    - **Success** responses are wrapped: `{ "ok": true, "data": ... }`, or
+      `{ "ok": true, "cursor": { "data": [ ... ] } }` for paginated lists.
+    - **Errors** are wrapped: `{ "ok": false, "error": "ERR_CODE", "message": "…" }`.
+      Sharia / Guard denials add `"standard_ref"` (the AAOIFI reference).
+    - Authentication is a **bearer API key** (`Authorization: Bearer <key>`);
+      it is disabled by default in development.
+
+    ### Sharia guarantees
+    Money only moves through the ledger, every contract transition passes the
+    FaRl **Guard**, and each step is written to a hash-chained AAOIFI audit trail.
+servers:
+  - url: http://localhost:3068
+    description: Development sandbox
+  - url: https://api.corren.io
+    description: Production
+security:
+  - bearerAuth: []
+  - {}
+tags:
+  - name: ledger
+    description: FaRl execution, transactions and accounts
+  - name: wallets
+    description: User wallets with Sharia-aware holds
+  - name: contracts
+    description: Sharia contracts — Murabaha & Ijarah
+  - name: payments
+    description: PSP connectors (payins via webhook, payouts)
+  - name: flows
+    description: Sharia-native orchestration
+
+paths:
+  /{ledger}/script:
+    post:
+      tags: [ledger]
+      summary: Execute a FaRl script
+      description: |
+        Compile and execute a FaRl script. Every posting it produces is committed
+        as a single atomic transaction through the Guard. Returns `{ ok }` and, on
+        failure, the compiler/runtime error in `err`.
+      parameters: [{ $ref: '#/components/parameters/Ledger' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Script' }
+            examples:
+              p2p:
+                summary: A peer-to-peer transfer
+                value:
+                  plain: "transfer [AED.2 20000] (\n  from @wallet:alice\n  to   @wallet:bob\n)"
+              withVars:
+                summary: Parametrized with typed variables
+                value:
+                  plain: "var $m : monetary\n\ntransfer $m (\n  from @world\n  to   @wallet:bob\n)"
+                  vars:
+                    m: { asset: "AED.2", amount: 20000 }
+      responses:
+        "200":
+          description: Execution result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean, example: true }
+                  err: { type: string, description: Present only when ok is false }
+  /{ledger}/transactions:
+    get:
+      tags: [ledger]
+      summary: List transactions
+      parameters:
+        - { $ref: '#/components/parameters/Ledger' }
+        - { name: account, in: query, schema: { type: string }, description: Filter by an account address }
+        - { name: reference, in: query, schema: { type: string } }
+        - { name: after, in: query, schema: { type: string }, description: Pagination cursor }
+      responses:
+        "200":
+          description: A page of transactions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  cursor:
+                    type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Transaction' }
+    post:
+      tags: [ledger]
+      summary: Commit a transaction
+      description: Commit one transaction (a set of postings) directly to the ledger, through the Guard.
+      parameters: [{ $ref: '#/components/parameters/Ledger' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TransactionInput' }
+            example:
+              reference: "topup-001"
+              postings:
+                - { source: "@world", destination: "@wallet:alice", asset: "AED.2", amount: 50000 }
+      responses:
+        "200":
+          description: The committed transaction(s)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Transaction' }
+        "422":
+          $ref: '#/components/responses/ShariaViolation'
+        "500":
+          $ref: '#/components/responses/Generic'
+  /{ledger}/accounts:
+    get:
+      tags: [ledger]
+      summary: List accounts
+      parameters: [{ $ref: '#/components/parameters/Ledger' }]
+      responses:
+        "200":
+          description: A page of accounts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  cursor:
+                    type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Account' }
+  /{ledger}/accounts/{address}:
+    get:
+      tags: [ledger]
+      summary: Get one account
+      description: Returns an account with its per-asset balances.
+      parameters:
+        - { $ref: '#/components/parameters/Ledger' }
+        - { name: address, in: path, required: true, schema: { type: string }, example: "@wallet:alice" }
+      responses:
+        "200":
+          description: The account
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  data: { $ref: '#/components/schemas/Account' }
+        "404": { $ref: '#/components/responses/NotFound' }
+  /{ledger}/stats:
+    get:
+      tags: [ledger]
+      summary: Ledger statistics
+      parameters: [{ $ref: '#/components/parameters/Ledger' }]
+      responses:
+        "200":
+          description: Aggregate counts for the ledger
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      transactions: { type: integer, format: int64 }
+                      accounts: { type: integer, format: int64 }
+
+  /{ledger}/wallets:
+    post:
+      tags: [wallets]
+      summary: Create a wallet
+      parameters: [{ $ref: '#/components/parameters/Ledger' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [owner, asset]
+              properties:
+                owner: { type: string, example: "user_alice" }
+                asset: { type: string, example: "AED.2" }
+      responses:
+        "201":
+          description: The created wallet
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WalletEnvelope' }
+        "400": { $ref: '#/components/responses/InvalidParams' }
+  /{ledger}/wallets/{id}:
+    get:
+      tags: [wallets]
+      summary: Get a wallet (with balances)
+      parameters:
+        - { $ref: '#/components/parameters/Ledger' }
+        - { $ref: '#/components/parameters/WalletId' }
+      responses:
+        "200":
+          description: The wallet and its balances
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    allOf:
+                      - { $ref: '#/components/schemas/Wallet' }
+                      - type: object
+                        properties:
+                          balances:
+                            type: object
+                            properties:
+                              available: { $ref: '#/components/schemas/AssetMap' }
+                              held: { $ref: '#/components/schemas/AssetMap' }
+        "404": { $ref: '#/components/responses/NotFound' }
+  /{ledger}/wallets/{id}/credit:
+    post:
+      tags: [wallets]
+      summary: Credit a wallet (top up)
+      parameters:
+        - { $ref: '#/components/parameters/Ledger' }
+        - { $ref: '#/components/parameters/WalletId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MoveRequest' }
+            example: { asset: "AED.2", amount: 50000, source: "@world" }
+      responses:
+        "200":
+          description: The crediting transaction
+          content: { application/json: { schema: { $ref: '#/components/schemas/TransactionEnvelope' } } }
+        "400": { $ref: '#/components/responses/InvalidParams' }
+  /{ledger}/wallets/{id}/debit:
+    post:
+      tags: [wallets]
+      summary: Debit a wallet
+      parameters:
+        - { $ref: '#/components/parameters/Ledger' }
+        - { $ref: '#/components/parameters/WalletId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MoveRequest' }
+            example: { asset: "AED.2", amount: 20000, destination: "@world" }
+      responses:
+        "200":
+          description: The debiting transaction
+          content: { application/json: { schema: { $ref: '#/components/schemas/TransactionEnvelope' } } }
+        "422": { $ref: '#/components/responses/InsufficientFunds' }
+  /{ledger}/wallets/{id}/transfer:
+    post:
+      tags: [wallets]
+      summary: Transfer between wallets (P2P)
+      parameters:
+        - { $ref: '#/components/parameters/Ledger' }
+        - { $ref: '#/components/parameters/WalletId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to, asset, amount]
+              properties:
+                to: { type: string, example: "wlt_bob" }
+                asset: { type: string, example: "AED.2" }
+                amount: { type: integer, format: int64, example: 20000 }
+      responses:
+        "200":
+          description: The transfer transaction
+          content: { application/json: { schema: { $ref: '#/components/schemas/TransactionEnvelope' } } }
+        "422": { $ref: '#/components/responses/InsufficientFunds' }
+  /{ledger}/wallets/{id}/holds:
+    post:
+      tags: [wallets]
+      summary: Place a hold (reserve funds)
+      description: Reserves funds with a real `main → holds` posting — a hold can never reserve money that does not exist (no fictitious debt).
+      parameters:
+        - { $ref: '#/components/parameters/Ledger' }
+        - { $ref: '#/components/parameters/WalletId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [asset, amount]
+              properties:
+                asset: { type: string, example: "AED.2" }
+                amount: { type: integer, format: int64, example: 5000 }
+                reason: { type: string, example: "escrow" }
+                expires_at: { type: string, format: date-time, example: "2026-07-01T00:00:00Z" }
+      responses:
+        "201":
+          description: The created hold
+          content: { application/json: { schema: { $ref: '#/components/schemas/HoldEnvelope' } } }
+        "422": { $ref: '#/components/responses/InsufficientFunds' }
+  /{ledger}/wallets/{id}/holds/{hold_id}:
+    delete:
+      tags: [wallets]
+      summary: Release a hold
+      description: Returns the reserved funds to the wallet's available balance.
+      parameters:
+        - { $ref: '#/components/parameters/Ledger' }
+        - { $ref: '#/components/parameters/WalletId' }
+        - { name: hold_id, in: path, required: true, schema: { type: string }, example: "hld_9f3a..." }
+      responses:
+        "200":
+          description: The release transaction
+          content: { application/json: { schema: { $ref: '#/components/schemas/TransactionEnvelope' } } }
+        "404": { $ref: '#/components/responses/NotFound' }
+  /{ledger}/wallets/{id}/transactions:
+    get:
+      tags: [wallets]
+      summary: List a wallet's transactions
+      parameters:
+        - { $ref: '#/components/parameters/Ledger' }
+        - { $ref: '#/components/parameters/WalletId' }
+      responses:
+        "200":
+          description: A page of transactions touching this wallet
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  cursor:
+                    type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/Transaction' } }
+
+  /{ledger}/contracts:
+    post:
+      tags: [contracts]
+      summary: Create a Sharia contract
+      description: |
+        Create a Murabaha or Ijarah contract in the `PROMISE` state. No money moves
+        yet; the schedule is computed and the creation is recorded in the audit trail.
+      parameters: [{ $ref: '#/components/parameters/Ledger' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateContractRequest' }
+            examples:
+              murabaha:
+                summary: Murabaha (cost-plus financing)
+                value:
+                  type: murabaha
+                  id: mur2026a7x4
+                  params:
+                    asset_code: "VHCL42"
+                    cost: { asset: "AED.2", amount: 100000 }
+                    markup: { asset: "AED.2", amount: 15000 }
+                    client: "@wallet:user_alice"
+                    supplier: "@supplier:cars"
+                    bank_treasury: "@bank:treasury"
+                    installments: 12
+                    first_due: "2026-07-01T00:00:00Z"
+                    period_days: 30
+              ijarah:
+                summary: Ijarah (leasing)
+                value:
+                  type: ijarah
+                  params:
+                    asset_code: "APT01"
+                    cost: { asset: "AED.2", amount: 500000 }
+                    rent: { asset: "AED.2", amount: 60000 }
+                    client: "@wallet:tenant"
+                    supplier: "@supplier:realty"
+                    periods: 12
+                    first_due: "2026-08-01T00:00:00Z"
+      responses:
+        "201":
+          description: The created contract and its schedule
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      contract: { $ref: '#/components/schemas/Contract' }
+                      schedule: { type: array, items: { $ref: '#/components/schemas/Installment' } }
+        "400": { $ref: '#/components/responses/InvalidParams' }
+        "409": { $ref: '#/components/responses/Duplicate' }
+        "422": { $ref: '#/components/responses/ShariaViolation' }
+    get:
+      tags: [contracts]
+      summary: List contracts
+      parameters:
+        - { $ref: '#/components/parameters/Ledger' }
+        - { name: limit, in: query, schema: { type: integer, default: 50 } }
+        - { name: offset, in: query, schema: { type: integer, default: 0 } }
+      responses:
+        "200":
+          description: Contracts, most recent first
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  data: { type: array, items: { $ref: '#/components/schemas/Contract' } }
+  /{ledger}/contracts/{id}:
+    get:
+      tags: [contracts]
+      summary: Get a contract (with schedule)
+      parameters:
+        - { $ref: '#/components/parameters/Ledger' }
+        - { $ref: '#/components/parameters/ContractId' }
+      responses:
+        "200":
+          description: The contract and its schedule
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      contract: { $ref: '#/components/schemas/Contract' }
+                      schedule: { type: array, items: { $ref: '#/components/schemas/Installment' } }
+        "404": { $ref: '#/components/responses/NotFound' }
+  /{ledger}/contracts/{id}/transitions/{name}:
+    post:
+      tags: [contracts]
+      summary: Drive a contract transition
+      description: |
+        Execute one FSM transition. Murabaha: `acquire` → `sell` → `pay_installment`
+        (→ `early_settle`, `late_penalty`, `cancel`). Ijarah: `acquire` → `lease` →
+        `pay_rent` (→ `late_penalty`, `cancel`). Exactly one ledger transaction is
+        committed through the Guard, and the step is journaled in the audit chain.
+      parameters:
+        - { $ref: '#/components/parameters/Ledger' }
+        - { $ref: '#/components/parameters/ContractId' }
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [acquire, sell, pay_installment, early_settle, late_penalty, lease, pay_rent, cancel]
+          example: pay_installment
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TransitionInput' }
+            example: { seq: 1 }
+      responses:
+        "200":
+          description: The transition result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  data: { $ref: '#/components/schemas/TransitionResult' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "409": { $ref: '#/components/responses/InvalidTransition' }
+        "422": { $ref: '#/components/responses/ShariaViolation' }
+  /{ledger}/contracts/{id}/schedule:
+    get:
+      tags: [contracts]
+      summary: Get a contract's schedule
+      parameters:
+        - { $ref: '#/components/parameters/Ledger' }
+        - { $ref: '#/components/parameters/ContractId' }
+      responses:
+        "200":
+          description: The installment/rent schedule
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  data: { type: array, items: { $ref: '#/components/schemas/Installment' } }
+        "404": { $ref: '#/components/responses/NotFound' }
+  /{ledger}/contracts/{id}/audit:
+    get:
+      tags: [contracts]
+      summary: Get the AAOIFI audit trail
+      description: Returns the hash-chained audit events. With `verify=true` the chain is re-verified and `chain_valid` is returned.
+      parameters:
+        - { $ref: '#/components/parameters/Ledger' }
+        - { $ref: '#/components/parameters/ContractId' }
+        - { name: verify, in: query, schema: { type: boolean }, example: true }
+      responses:
+        "200":
+          description: The audit events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  data:
+                    type: object
+                    properties:
+                      events: { type: array, items: { $ref: '#/components/schemas/AuditEvent' } }
+                      chain_valid: { type: boolean }
+        "404": { $ref: '#/components/responses/NotFound' }
+
+  /{ledger}/payments/webhooks/{psp}:
+    post:
+      tags: [payments]
+      summary: Ingest a PSP webhook
+      description: |
+        Endpoint a PSP calls to confirm a payment. The signature is verified
+        (Stripe: `Stripe-Signature` header; others: `signature`); on a successful
+        payin the target wallet is credited. Send the **raw** provider payload.
+      parameters:
+        - { $ref: '#/components/parameters/Ledger' }
+        - { name: psp, in: path, required: true, schema: { type: string }, example: stripe }
+        - { name: Stripe-Signature, in: header, schema: { type: string }, description: "Stripe HMAC signature (t=…,v1=…)" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: Raw provider event payload }
+      responses:
+        "200":
+          description: The normalized event
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  data: { $ref: '#/components/schemas/PaymentEvent' }
+        "401": { $ref: '#/components/responses/InvalidSignature' }
+  /{ledger}/payments/payouts:
+    post:
+      tags: [payments]
+      summary: Initiate a payout
+      description: Debits the wallet first (refused if short), then instructs the PSP. A failed PSP call compensates the debit.
+      parameters: [{ $ref: '#/components/parameters/Ledger' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [psp, wallet_id, asset, destination, amount]
+              properties:
+                psp: { type: string, example: stripe }
+                wallet_id: { type: string, example: "wlt_alice" }
+                asset: { type: string, example: "AED.2" }
+                destination: { type: string, example: "iban_xxx" }
+                amount: { type: integer, format: int64, example: 20000 }
+      responses:
+        "200":
+          description: The payout record
+          content: { application/json: { schema: { $ref: '#/components/schemas/PaymentEnvelope' } } }
+        "404": { $ref: '#/components/responses/UnknownPSP' }
+        "422": { $ref: '#/components/responses/InsufficientFunds' }
+  /{ledger}/payments:
+    get:
+      tags: [payments]
+      summary: List payment records
+      parameters:
+        - { $ref: '#/components/parameters/Ledger' }
+        - { name: limit, in: query, schema: { type: integer, default: 50 } }
+        - { name: offset, in: query, schema: { type: integer, default: 0 } }
+      responses:
+        "200":
+          description: Payment records, most recent first
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  data: { type: array, items: { $ref: '#/components/schemas/Payment' } }
+
+  /{ledger}/flows:
+    post:
+      tags: [flows]
+      summary: Define a flow
+      description: "A flow is a named sequence of steps run when a trigger fires. Step types: transfer, sharia, condition, wait."
+      parameters: [{ $ref: '#/components/parameters/Ledger' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateFlowRequest' }
+            example:
+              name: p2p_with_fee
+              trigger: manual
+              steps:
+                - { type: condition, config: { expr: "amount >= 1000" } }
+                - { type: transfer, config: { script: "transfer [$amount] (from @wallet:$sender to @wallet:$receiver)" } }
+      responses:
+        "201":
+          description: The created flow
+          content: { application/json: { schema: { $ref: '#/components/schemas/FlowEnvelope' } } }
+        "400": { $ref: '#/components/responses/InvalidParams' }
+  /{ledger}/flows/{id}/trigger:
+    post:
+      tags: [flows]
+      summary: Trigger a flow run
+      description: The whole request body becomes the flow input that steps substitute `$var` tokens from.
+      parameters:
+        - { $ref: '#/components/parameters/Ledger' }
+        - { $ref: '#/components/parameters/FlowId' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object }
+            example: { amount: "AED.2 20000", sender: "alice", receiver: "bob" }
+      responses:
+        "200":
+          description: The resulting instance (may carry a terminal failed/stopped status)
+          content: { application/json: { schema: { $ref: '#/components/schemas/FlowInstanceEnvelope' } } }
+        "404": { $ref: '#/components/responses/NotFound' }
+  /{ledger}/flows/{id}/instances:
+    get:
+      tags: [flows]
+      summary: List a flow's runs
+      parameters:
+        - { $ref: '#/components/parameters/Ledger' }
+        - { $ref: '#/components/parameters/FlowId' }
+      responses:
+        "200":
+          description: The flow's instances
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  data: { type: array, items: { $ref: '#/components/schemas/FlowInstance' } }
+        "404": { $ref: '#/components/responses/NotFound' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: "API key, e.g. `Authorization: Bearer sk_live_…`. Disabled by default in development."
+  parameters:
+    Ledger:
+      name: ledger
+      in: path
+      required: true
+      description: Ledger name (created on first use)
+      schema: { type: string, default: main }
+      example: main
+    WalletId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+      example: "wlt_9f3a8c1b2d4e5f60"
+    ContractId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+      example: "mur2026a7x4"
+    FlowId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+      example: "flw_1a2b3c4d"
+  schemas:
+    AssetMap:
+      type: object
+      additionalProperties: { type: integer, format: int64 }
+      example: { "AED.2": 30000 }
+    Monetary:
+      type: object
+      required: [asset, amount]
+      properties:
+        asset: { type: string, example: "AED.2" }
+        amount: { type: integer, format: int64, example: 100000 }
+    Posting:
+      type: object
+      properties:
+        source: { type: string, example: "@world" }
+        destination: { type: string, example: "@wallet:alice" }
+        asset: { type: string, example: "AED.2" }
+        amount: { type: integer, format: int64, example: 50000 }
+    Transaction:
+      type: object
+      properties:
+        txid: { type: integer, format: int64, example: 0 }
+        postings: { type: array, items: { $ref: '#/components/schemas/Posting' } }
+        reference: { type: string, example: "topup-001" }
+        timestamp: { type: string, format: date-time }
+        hash: { type: string }
+        metadata: { type: object, additionalProperties: true }
+    TransactionInput:
+      type: object
+      required: [postings]
+      properties:
+        postings: { type: array, items: { $ref: '#/components/schemas/Posting' } }
+        reference: { type: string }
+        metadata: { type: object, additionalProperties: true }
+    Account:
+      type: object
+      properties:
+        address: { type: string, example: "@wallet:alice" }
+        contract: { type: string, example: "default" }
+        type: { type: string, example: "virtual" }
+        balances: { $ref: '#/components/schemas/AssetMap' }
+        metadata: { type: object, additionalProperties: true }
+    Script:
+      type: object
+      required: [plain]
+      properties:
+        plain: { type: string, description: FaRl source }
+        vars:
+          type: object
+          additionalProperties: true
+          description: Typed variable values (monetary as `{asset,amount}`, account as a string, portion as `"10/100"`).
+    Wallet:
+      type: object
+      properties:
+        id: { type: string, example: "wlt_9f3a8c1b2d4e5f60" }
+        owner: { type: string, example: "user_alice" }
+        asset: { type: string, example: "AED.2" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    Hold:
+      type: object
+      properties:
+        id: { type: string, example: "hld_1a2b3c4d" }
+        wallet_id: { type: string }
+        asset: { type: string, example: "AED.2" }
+        amount: { type: integer, format: int64, example: 5000 }
+        status: { type: string, enum: [active, captured, voided] }
+        reason: { type: string }
+        expires_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    MoveRequest:
+      type: object
+      required: [asset, amount]
+      properties:
+        asset: { type: string, example: "AED.2" }
+        amount: { type: integer, format: int64, example: 20000 }
+        source: { type: string, description: "Credit counter-account (defaults to @world)" }
+        destination: { type: string, description: "Debit counter-account (defaults to @world)" }
+    MurabahaParams:
+      type: object
+      required: [asset_code, cost, markup, client, supplier, installments, first_due]
+      properties:
+        asset_code: { type: string, example: "VHCL42", description: Goods identifier (must differ from the money asset) }
+        cost: { $ref: '#/components/schemas/Monetary' }
+        markup: { $ref: '#/components/schemas/Monetary', description: Disclosed bank profit }
+        client: { type: string, example: "@wallet:user_alice" }
+        supplier: { type: string, example: "@supplier:cars" }
+        bank_treasury: { type: string, default: "@bank:treasury" }
+        installments: { type: integer, example: 12 }
+        first_due: { type: string, format: date-time, example: "2026-07-01T00:00:00Z" }
+        period_days: { type: integer, default: 30 }
+    IjarahParams:
+      type: object
+      required: [asset_code, cost, rent, client, supplier, periods, first_due]
+      properties:
+        asset_code: { type: string, example: "APT01" }
+        cost: { $ref: '#/components/schemas/Monetary' }
+        rent: { $ref: '#/components/schemas/Monetary', description: Rent per period (total rent must exceed cost) }
+        client: { type: string, example: "@wallet:tenant" }
+        supplier: { type: string, example: "@supplier:realty" }
+        bank_treasury: { type: string, default: "@bank:treasury" }
+        periods: { type: integer, example: 12 }
+        first_due: { type: string, format: date-time, example: "2026-08-01T00:00:00Z" }
+        period_days: { type: integer, default: 30 }
+    CreateContractRequest:
+      type: object
+      required: [type, params]
+      properties:
+        type: { type: string, enum: [murabaha, ijarah] }
+        id: { type: string, description: "Optional explicit id (^[a-z][a-z0-9_]{3,40}$); auto-generated if omitted" }
+        params:
+          oneOf:
+            - { $ref: '#/components/schemas/MurabahaParams' }
+            - { $ref: '#/components/schemas/IjarahParams' }
+    Contract:
+      type: object
+      properties:
+        id: { type: string, example: "mur2026a7x4" }
+        type: { type: string, enum: [murabaha, ijarah] }
+        state: { type: string, enum: [PROMISE, ACQUIRED, SOLD, LEASED, SETTLED, COMPLETED, CANCELLED] }
+        params: { type: object, additionalProperties: true }
+        template_version: { type: string, example: "murabaha/1.0.0" }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    Installment:
+      type: object
+      properties:
+        seq: { type: integer, example: 1 }
+        due_date: { type: string, format: date-time }
+        amount: { type: integer, format: int64, example: 9583 }
+        principal_part: { type: integer, format: int64 }
+        profit_part: { type: integer, format: int64 }
+        depreciation_part: { type: integer, format: int64 }
+        status: { type: string, enum: [pending, paid, overdue, settled_early] }
+        paid_tx_id: { type: integer, format: int64 }
+        paid_at: { type: string, format: date-time }
+    TransitionInput:
+      type: object
+      properties:
+        seq: { type: integer, description: Installment to pay }
+        rebate: { type: integer, format: int64, description: "ibra' rebate for early_settle" }
+        amount: { type: integer, format: int64, description: Penalty amount for late_penalty }
+        destination: { type: string, description: "Charity account for late_penalty (must be @charity:…)" }
+    TransitionResult:
+      type: object
+      properties:
+        contract_id: { type: string }
+        transition: { type: string, example: "pay_installment" }
+        new_state: { type: string, example: "SOLD" }
+        tx_id: { type: integer, format: int64 }
+    AuditEvent:
+      type: object
+      properties:
+        contract_id: { type: string }
+        seq: { type: integer }
+        event: { type: string, enum: [created, transition, rejected, penalty, settled, overdue] }
+        transition: { type: string }
+        decision: { type: string, enum: [allowed, denied] }
+        reason: { type: string }
+        standard_ref: { type: string, example: "AAOIFI-SS-8" }
+        tx_id: { type: integer, format: int64 }
+        prev_hash: { type: string }
+        hash: { type: string }
+        created_at: { type: string, format: date-time }
+    Payment:
+      type: object
+      properties:
+        id: { type: string, example: "pay_1a2b3c4d" }
+        psp: { type: string, example: stripe }
+        direction: { type: string, enum: [payin, payout] }
+        wallet_id: { type: string }
+        asset: { type: string, example: "AED.2" }
+        amount: { type: integer, format: int64, example: 20000 }
+        status: { type: string, enum: [pending, succeeded, failed] }
+        reference: { type: string }
+        external_id: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    PaymentEvent:
+      type: object
+      properties:
+        type: { type: string, enum: [payment.succeeded, payment.failed, unhandled] }
+        psp: { type: string }
+        reference: { type: string }
+        external_id: { type: string }
+        wallet_id: { type: string }
+        asset: { type: string }
+        amount: { type: integer, format: int64 }
+    Step:
+      type: object
+      properties:
+        type: { type: string, enum: [transfer, sharia, condition, wait] }
+        config: { type: object, additionalProperties: true }
+    Flow:
+      type: object
+      properties:
+        id: { type: string, example: "flw_1a2b3c4d" }
+        name: { type: string }
+        trigger: { type: string, enum: [manual, wallet_credited, schedule] }
+        schedule: { type: string }
+        steps: { type: array, items: { $ref: '#/components/schemas/Step' } }
+        last_run_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    CreateFlowRequest:
+      type: object
+      required: [name, trigger, steps]
+      properties:
+        name: { type: string }
+        trigger: { type: string, enum: [manual, wallet_credited, schedule] }
+        schedule: { type: string, description: Required when trigger = schedule }
+        steps: { type: array, items: { $ref: '#/components/schemas/Step' } }
+    FlowInstance:
+      type: object
+      properties:
+        id: { type: string }
+        flow_id: { type: string }
+        status: { type: string, enum: [pending, running, waiting, completed, stopped, failed] }
+        current_step: { type: integer }
+        input: { type: object, additionalProperties: true }
+        resume_at: { type: string, format: date-time }
+        error: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    Error:
+      type: object
+      properties:
+        ok: { type: boolean, example: false }
+        error: { type: string, description: "Machine-readable code (e.g. ERR_SHARIA_VIOLATION). Generic failures use the boolean true with error_code/error_message." }
+        message: { type: string }
+        standard_ref: { type: string, description: AAOIFI reference on a Sharia/Guard denial }
+        contract_id: { type: string }
+        wallet_id: { type: string }
+    WalletEnvelope:
+      type: object
+      properties: { ok: { type: boolean }, data: { $ref: '#/components/schemas/Wallet' } }
+    HoldEnvelope:
+      type: object
+      properties: { ok: { type: boolean }, data: { $ref: '#/components/schemas/Hold' } }
+    TransactionEnvelope:
+      type: object
+      properties: { ok: { type: boolean }, data: { $ref: '#/components/schemas/Transaction' } }
+    PaymentEnvelope:
+      type: object
+      properties: { ok: { type: boolean }, data: { $ref: '#/components/schemas/Payment' } }
+    FlowEnvelope:
+      type: object
+      properties: { ok: { type: boolean }, data: { $ref: '#/components/schemas/Flow' } }
+    FlowInstanceEnvelope:
+      type: object
+      properties: { ok: { type: boolean }, data: { $ref: '#/components/schemas/FlowInstance' } }
+  responses:
+    InvalidParams:
+      description: ERR_INVALID_PARAMS — the request body is invalid
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { ok: false, error: ERR_INVALID_PARAMS, message: "cost.amount must be > 0" }
+    NotFound:
+      description: ERR_NOT_FOUND — the resource does not exist
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { ok: false, error: ERR_NOT_FOUND, message: "contract not found" }
+    InvalidTransition:
+      description: ERR_INVALID_TRANSITION — the transition is not allowed from the current state
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { ok: false, error: ERR_INVALID_TRANSITION, message: 'transition "sell" is not allowed from state PROMISE' }
+    ShariaViolation:
+      description: ERR_SHARIA_VIOLATION — a Sharia rule or the FaRl Guard denied the operation
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { ok: false, error: ERR_SHARIA_VIOLATION, message: "sale of non-possessed asset", standard_ref: "AAOIFI-SS-8" }
+    Duplicate:
+      description: ERR_DUPLICATE — a resource with this id already exists
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { ok: false, error: ERR_DUPLICATE, message: "contract already exists" }
+    InsufficientFunds:
+      description: ERR_INSUFFICIENT_FUNDS — the debit exceeds the available balance
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { ok: false, error: ERR_INSUFFICIENT_FUNDS, message: "insufficient wallet balance" }
+    InvalidSignature:
+      description: ERR_INVALID_SIGNATURE — the webhook signature does not match
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { ok: false, error: ERR_INVALID_SIGNATURE, message: "stripe signature mismatch" }
+    UnknownPSP:
+      description: ERR_UNKNOWN_PSP — the PSP is not configured
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { ok: false, error: ERR_UNKNOWN_PSP, message: "unknown psp: stripe" }
+    Generic:
+      description: An unexpected server error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { ok: false, error: true, error_code: 500, error_message: "internal error" }
