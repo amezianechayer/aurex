@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/jackc/pgx/v4/pgxpool"
+
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -13,13 +16,13 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/amezianechayer/corren/storage"
+
 	"github.com/amezianechayer/corren/config"
 	"github.com/amezianechayer/corren/core"
 	"github.com/amezianechayer/corren/ledger/query"
-	"github.com/amezianechayer/corren/storage"
 	"github.com/amezianechayer/corren/storage/postgres"
 	"github.com/google/go-cmp/cmp"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
 )
@@ -32,9 +35,11 @@ func with(f func(l *Ledger)) {
 		fx.Provide(
 			func(lc fx.Lifecycle) (*Ledger, error) {
 				l, err := NewLedger("test", lc, storage.DefaultFactory)
+
 				if err != nil {
-					return nil, err
+					panic(err)
 				}
+
 				return l, nil
 			},
 		),
@@ -76,27 +81,28 @@ func TestMain(m *testing.M) {
 
 func TestTransaction(t *testing.T) {
 	with(func(l *Ledger) {
+
 		testsize := 1e4
 		total := 0
 		batch := []core.Transaction{}
 
 		for i := 1; i <= int(testsize); i++ {
-			user := fmt.Sprintf("@users:%03d", 1+rand.Intn(100))
+			user := fmt.Sprintf("users:%03d", 1+rand.Intn(100))
 			amount := 100
 			total += amount
 
 			batch = append(batch, core.Transaction{
 				Postings: []core.Posting{
 					{
-						Source:      "@world",
-						Destination: "@mint",
-						Asset:       "GEM",
+						Source:      "world",
+						Destination: "mint",
+						Asset:       "SAR",
 						Amount:      int64(amount),
 					},
 					{
-						Source:      "@mint",
+						Source:      "mint",
 						Destination: user,
-						Asset:       "GEM",
+						Asset:       "SAR",
 						Amount:      int64(amount),
 					},
 				},
@@ -109,6 +115,7 @@ func TestTransaction(t *testing.T) {
 			fmt.Println(i)
 
 			_, err := l.Commit(batch)
+
 			if err != nil {
 				t.Error(err)
 			}
@@ -116,15 +123,16 @@ func TestTransaction(t *testing.T) {
 			batch = []core.Transaction{}
 		}
 
-		world, err := l.GetAccount("@world")
+		world, err := l.GetAccount("world")
+
 		if err != nil {
 			t.Error(err)
 		}
 
 		expected := int64(-1 * total)
-		if b := world.Balances["GEM"]; b != expected {
+		if b := world.Balances["SAR"]; b != expected {
 			t.Error(fmt.Sprintf(
-				"wrong GEM balance for account @world, expected: %d got: %d",
+				"wrong SAR balance for account world, expected: %d got: %d",
 				expected,
 				b,
 			))
@@ -140,10 +148,10 @@ func TestBalance(t *testing.T) {
 			{
 				Postings: []core.Posting{
 					{
-						Source:      "@empty_wallet",
-						Destination: "@world",
+						Source:      "empty_wallet",
+						Destination: "world",
 						Amount:      1,
-						Asset:       "DZD.2",
+						Asset:       "CASH",
 					},
 				},
 			},
@@ -151,7 +159,7 @@ func TestBalance(t *testing.T) {
 
 		if err == nil {
 			t.Error(errors.New(
-				"balance was insufficient yet the transaction was commited",
+				"balance was insufficient yet the transation was commited",
 			))
 		}
 	})
@@ -163,20 +171,22 @@ func TestReference(t *testing.T) {
 			Reference: "payment_processor_id_01",
 			Postings: []core.Posting{
 				{
-					Source:      "@world",
-					Destination: "@payments:001",
+					Source:      "world",
+					Destination: "payments:001",
 					Amount:      100,
-					Asset:       "DZD.2",
+					Asset:       "CASH",
 				},
 			},
 		}
 
 		_, err := l.Commit([]core.Transaction{tx})
+
 		if err != nil {
 			t.Error(err)
 		}
 
 		_, err = l.Commit([]core.Transaction{tx})
+
 		if err == nil {
 			t.Fail()
 		}
@@ -186,6 +196,7 @@ func TestReference(t *testing.T) {
 func TestLast(t *testing.T) {
 	with(func(l *Ledger) {
 		_, err := l.GetLastTransaction()
+
 		if err != nil {
 			t.Error(err)
 		}
@@ -194,15 +205,15 @@ func TestLast(t *testing.T) {
 
 func TestAccountMetadata(t *testing.T) {
 	with(func(l *Ledger) {
-		l.SaveMeta("account", "@users:001", core.Metadata{
+		l.SaveMeta("account", "users:001", core.Metadata{
 			"a random metadata": json.RawMessage(`"old value"`),
 		})
-		l.SaveMeta("account", "@users:001", core.Metadata{
+		l.SaveMeta("account", "users:001", core.Metadata{
 			"a random metadata": json.RawMessage(`"new value"`),
 		})
 
 		{
-			acc, err := l.GetAccount("@users:001")
+			acc, err := l.GetAccount("users:001")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -220,7 +231,8 @@ func TestAccountMetadata(t *testing.T) {
 		}
 
 		{
-			cursor, err := l.FindAccounts(query.Account("@users:001"))
+			cursor, err := l.FindAccounts(query.Account("users:001"))
+
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -249,13 +261,14 @@ func TestAccountMetadata(t *testing.T) {
 
 func TestTransactionMetadata(t *testing.T) {
 	with(func(l *Ledger) {
+
 		l.Commit([]core.Transaction{{
 			Postings: []core.Posting{
 				{
-					Source:      "@world",
-					Destination: "@payments:001",
+					Source:      "world",
+					Destination: "payments:001",
 					Amount:      100,
-					Asset:       "DZD.2",
+					Asset:       "CASH",
 				},
 			},
 		}})
@@ -292,13 +305,14 @@ func TestTransactionMetadata(t *testing.T) {
 
 func TestSaveTransactionMetadata(t *testing.T) {
 	with(func(l *Ledger) {
+
 		l.Commit([]core.Transaction{{
 			Postings: []core.Posting{
 				{
-					Source:      "@world",
-					Destination: "@payments:001",
+					Source:      "world",
+					Destination: "payments:001",
 					Amount:      100,
-					Asset:       "DZD.2",
+					Asset:       "CASH",
 				},
 			},
 			Metadata: core.Metadata{
@@ -323,6 +337,7 @@ func TestSaveTransactionMetadata(t *testing.T) {
 		}
 	})
 }
+
 func TestGetTransaction(t *testing.T) {
 	with(func(l *Ledger) {
 		l.Commit([]core.Transaction{{
@@ -330,9 +345,9 @@ func TestGetTransaction(t *testing.T) {
 			Postings: []core.Posting{
 				{
 					Source:      "world",
-					Destination: "payments:081",
+					Destination: "payments:001",
 					Amount:      100,
-					Asset:       "DZD.2",
+					Asset:       "CASH",
 				},
 			},
 		}})
@@ -352,6 +367,7 @@ func TestGetTransaction(t *testing.T) {
 		}
 	})
 }
+
 func TestFindTransactions(t *testing.T) {
 	with(func(l *Ledger) {
 		tx := core.Transaction{
@@ -418,10 +434,10 @@ func TestRevertTransaction(t *testing.T) {
 		}
 
 		expectedPosting := core.Posting{
-			Source:      "payments:081",
+			Source:      "payments:001",
 			Destination: "world",
 			Amount:      100,
-			Asset:       "DZD.2",
+			Asset:       "CASH",
 		}
 
 		if diff := cmp.Diff(revertTx.Postings[0], expectedPosting); diff != "" {
@@ -441,20 +457,22 @@ func TestRevertTransaction(t *testing.T) {
 	})
 }
 
-func markTransaction1(b *testing.B) {
+func BenchmarkTransaction1(b *testing.B) {
 	with(func(l *Ledger) {
 		for n := 0; n < b.N; n++ {
 			txs := []core.Transaction{}
+
 			txs = append(txs, core.Transaction{
 				Postings: []core.Posting{
 					{
-						Source:      "@world",
-						Destination: "@benchmark",
-						Asset:       "DZD.2",
+						Source:      "world",
+						Destination: "benchmark",
+						Asset:       "CASH",
 						Amount:      10,
 					},
 				},
 			})
+
 			l.Commit(txs)
 		}
 	})
@@ -465,18 +483,20 @@ func BenchmarkTransaction_20_1k(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			for i := 0; i < 20; i++ {
 				txs := []core.Transaction{}
+
 				for j := 0; j < 1e3; j++ {
 					txs = append(txs, core.Transaction{
 						Postings: []core.Posting{
 							{
-								Source:      "@world",
-								Destination: "@benchmark",
-								Asset:       "DZD.2",
+								Source:      "world",
+								Destination: "benchmark",
+								Asset:       "CASH",
 								Amount:      10,
 							},
 						},
 					})
 				}
+
 				l.Commit(txs)
 			}
 		}
@@ -486,7 +506,7 @@ func BenchmarkTransaction_20_1k(b *testing.B) {
 func BenchmarkGetAccount(b *testing.B) {
 	with(func(l *Ledger) {
 		for i := 0; i < b.N; i++ {
-			l.GetAccount("@users:013")
+			l.GetAccount("users:013")
 		}
 	})
 }
