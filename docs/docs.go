@@ -25,11 +25,15 @@ var doc = `{
     "paths": {
         "/_info": {
             "get": {
+                "description": "Show server informations",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "server"
                 ],
                 "summary": "Server Info",
                 "responses": {
@@ -66,7 +70,7 @@ var doc = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/actions.BaseResponse"
+                                    "$ref": "#/definitions/controllers.BaseResponse"
                                 },
                                 {
                                     "type": "object",
@@ -128,7 +132,7 @@ var doc = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/actions.BaseResponse"
+                                    "$ref": "#/definitions/controllers.BaseResponse"
                                 },
                                 {
                                     "type": "object",
@@ -173,7 +177,7 @@ var doc = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/actions.BaseResponse"
+                            "$ref": "#/definitions/controllers.BaseResponse"
                         }
                     }
                 }
@@ -181,13 +185,17 @@ var doc = `{
         },
         "/{ledger}/script": {
             "post": {
+                "description": "Execute a Farl and create the transaction if any",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-                "summary": "Execute a Farl and commit transaction if any",
+                "tags": [
+                    "script"
+                ],
+                "summary": "Execute Farl",
                 "parameters": [
                     {
                         "type": "string",
@@ -210,7 +218,7 @@ var doc = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/actions.BaseResponse"
+                            "$ref": "#/definitions/controllers.BaseResponse"
                         }
                     }
                 }
@@ -218,14 +226,17 @@ var doc = `{
         },
         "/{ledger}/stats": {
             "get": {
-                "description": "The stats for account",
+                "description": "Get ledger stats (aggregate metrics on accounts and transactions)\nThe stats for account",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-                "summary": "Get ledger stats (aggregate metrics on accounts and transactions)",
+                "tags": [
+                    "stats"
+                ],
+                "summary": "Get Stats",
                 "parameters": [
                     {
                         "type": "string",
@@ -247,12 +258,15 @@ var doc = `{
         },
         "/{ledger}/transactions": {
             "get": {
-                "description": "List transactions",
+                "description": "Get all ledger transactions\nList transactions",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "transactions"
                 ],
                 "summary": "Get Transactions",
                 "parameters": [
@@ -270,7 +284,7 @@ var doc = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/actions.BaseResponse"
+                                    "$ref": "#/definitions/controllers.BaseResponse"
                                 },
                                 {
                                     "type": "object",
@@ -301,14 +315,17 @@ var doc = `{
                 }
             },
             "post": {
-                "description": "Commit a new transaction to the ledger",
+                "description": "Create a new ledger transaction\nCommit a new transaction to the ledger",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-                "summary": "Commit a new transaction to the ledger",
+                "tags": [
+                    "transactions"
+                ],
+                "summary": "Create Transaction",
                 "parameters": [
                     {
                         "type": "string",
@@ -331,21 +348,25 @@ var doc = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/actions.BaseResponse"
+                            "$ref": "#/definitions/controllers.BaseResponse"
                         }
                     }
                 }
             }
         },
-        "/{ledger}/transactions/{reference}/metadata": {
-            "post": {
+        "/{ledger}/transactions/{txid}": {
+            "get": {
+                "description": "Get transaction by transaction id",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-                "summary": "Set metadata on transaction",
+                "tags": [
+                    "transactions"
+                ],
+                "summary": "Revert Transaction",
                 "parameters": [
                     {
                         "type": "string",
@@ -356,8 +377,8 @@ var doc = `{
                     },
                     {
                         "type": "string",
-                        "description": "reference",
-                        "name": "reference",
+                        "description": "txid",
+                        "name": "txid",
                         "in": "path",
                         "required": true
                     }
@@ -366,21 +387,31 @@ var doc = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/actions.BaseResponse"
+                            "$ref": "#/definitions/controllers.BaseResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BaseResponse"
                         }
                     }
                 }
             }
         },
-        "/{ledger}/transactions/{transactionId}/revert": {
+        "/{ledger}/transactions/{txid}/metadata": {
             "post": {
+                "description": "Set a new metadata to a ledger transaction by transaction id",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
                     "application/json"
                 ],
-                "summary": "Revert transaction",
+                "tags": [
+                    "transactions"
+                ],
+                "summary": "Set Transaction Metadata",
                 "parameters": [
                     {
                         "type": "string",
@@ -391,8 +422,8 @@ var doc = `{
                     },
                     {
                         "type": "string",
-                        "description": "transactionId",
-                        "name": "transactionId",
+                        "description": "txid",
+                        "name": "txid",
                         "in": "path",
                         "required": true
                     }
@@ -401,7 +432,46 @@ var doc = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/actions.BaseResponse"
+                            "$ref": "#/definitions/controllers.BaseResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/{ledger}/transactions/{txid}/revert": {
+            "post": {
+                "description": "Revert a ledger transaction by transaction id",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "transactions"
+                ],
+                "summary": "Revert Transaction",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ledger",
+                        "name": "ledger",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "txid",
+                        "name": "txid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/controllers.BaseResponse"
                         }
                     }
                 }
@@ -436,7 +506,7 @@ var doc = `{
                 "ledgers": {}
             }
         },
-        "actions.BaseResponse": {
+        "controllers.BaseResponse": {
             "type": "object",
             "properties": {
                 "ok": {

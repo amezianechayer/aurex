@@ -332,6 +332,35 @@ func TestGetTransaction(t *testing.T) {
 		}
 	})
 }
+func TestFindTransactions(t *testing.T) {
+	with(func(l *Ledger) {
+		tx := core.Transaction{
+			Postings: []core.Posting{
+				{
+					Source:      "world",
+					Destination: "test_find_transactions",
+					Amount:      100,
+					Asset:       "CASH",
+				},
+			},
+		}
+
+		l.Commit([]core.Transaction{tx})
+
+		res, err := l.FindTransactions()
+
+		if err != nil {
+			t.Error(err)
+		}
+
+		txs := res.Data.([]core.Transaction)
+
+		if txs[0].Postings[0].Destination != "test_find_transactions" {
+			t.Error()
+		}
+	})
+}
+
 func TestRevertTransaction(t *testing.T) {
 	with(func(l *Ledger) {
 		revertAmt := int64(100)
@@ -343,7 +372,7 @@ func TestRevertTransaction(t *testing.T) {
 					Source:      "world",
 					Destination: "payments:001",
 					Amount:      revertAmt,
-					Asset:       "COIN",
+					Asset:       "CASH",
 				},
 			},
 		}})
@@ -352,7 +381,7 @@ func TestRevertTransaction(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		originalBal := world.Balances["COIN"]
+		originalBal := world.Balances["CASH"]
 
 		committedTx, err := l.GetLastTransaction()
 		if err != nil {
@@ -385,10 +414,10 @@ func TestRevertTransaction(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		newBal := world.Balances["COIN"]
+		newBal := world.Balances["CASH"]
 		expectedBal := originalBal + revertAmt
 		if newBal != expectedBal {
-			t.Fatalf("COIN world balances expected %d, got %d", expectedBal, newBal)
+			t.Fatalf("CASH world balances expected %d, got %d", expectedBal, newBal)
 		}
 	})
 }
