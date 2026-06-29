@@ -15,6 +15,7 @@ import (
 	"github.com/amezianechayer/corren/config"
 	"github.com/amezianechayer/corren/core"
 	"github.com/amezianechayer/corren/ledger/query"
+	"github.com/amezianechayer/corren/storage"
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
@@ -27,7 +28,7 @@ func with(f func(l *Ledger)) {
 		),
 		fx.Provide(
 			func(lc fx.Lifecycle) (*Ledger, error) {
-				l, err := NewLedger("test", lc)
+				l, err := NewLedger("test", lc, storage.DefaultFactory)
 				if err != nil {
 					return nil, err
 				}

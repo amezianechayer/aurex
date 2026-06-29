@@ -7,3 +7,8 @@ cmd/horizon*
 !cmd/horizon/.gitkeep
 .DS_Store
 aurex
+.gstack
+docs/swagger.json
+docs/swagger.yaml
+.idea
+vendor
