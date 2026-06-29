@@ -1,6 +1,7 @@
 package ledger
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,7 +17,9 @@ import (
 	"github.com/amezianechayer/corren/core"
 	"github.com/amezianechayer/corren/ledger/query"
 	"github.com/amezianechayer/corren/storage"
+	"github.com/amezianechayer/corren/storage/postgres"
 	"github.com/google/go-cmp/cmp"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
 )
@@ -44,12 +47,29 @@ func with(f func(l *Ledger)) {
 
 func TestMain(m *testing.M) {
 	log.SetOutput(ioutil.Discard)
+
 	config.Init()
 
 	viper.Set("storage.dir", os.TempDir())
-	viper.Set("storage.sqlite.db_name", "ledger")
+	switch viper.GetString("storage.driver") {
+	case "sqlite":
+		viper.Set("storage.sqlite.db_name", "ledger")
+		os.Remove(path.Join(os.TempDir(), "ledger_test.db"))
+	case "postgres":
+		pool, err := pgxpool.Connect(
+			context.Background(),
+			viper.GetString("storage.postgres.conn_string"),
+		)
+		if err != nil {
+			panic(err)
+		}
+		store, err := postgres.NewStore("test", pool)
+		if err != nil {
+			panic(err)
+		}
+		store.DropTest()
+	}
 	fmt.Println(viper.AllSettings())
-	os.Remove(path.Join(os.TempDir(), "ledger_test.db"))
 
 	m.Run()
 }
@@ -421,7 +441,7 @@ func TestRevertTransaction(t *testing.T) {
 	})
 }
 
-func BenchmarkTransaction1(b *testing.B) {
+func markTransaction1(b *testing.B) {
 	with(func(l *Ledger) {
 		for n := 0; n < b.N; n++ {
 			txs := []core.Transaction{}
