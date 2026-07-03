@@ -25,6 +25,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
+
+	// Register sql drivers
+	_ "github.com/amezianechayer/corren/storage/postgres"
+	_ "github.com/amezianechayer/corren/storage/sqlite"
 )
 
 func with(f func(l *Ledger)) {
