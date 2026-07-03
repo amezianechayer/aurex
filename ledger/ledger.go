@@ -2,16 +2,15 @@ package ledger
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/amezianechayer/corren/config"
 	"github.com/amezianechayer/corren/core"
 	"github.com/amezianechayer/corren/ledger/query"
 	"github.com/amezianechayer/corren/storage"
+	"github.com/pkg/errors"
 	"go.uber.org/fx"
 )
 
@@ -21,12 +20,12 @@ const (
 )
 
 type Ledger struct {
-	sync.Mutex
-	name  string
-	store storage.Store
+	locker Locker
+	name   string
+	store  storage.Store
 }
 
-func NewLedger(name string, lc fx.Lifecycle, storageFactory storage.Factory) (*Ledger, error) {
+func NewLedger(name string, lc fx.Lifecycle, storageFactory storage.Factory, locker Locker) (*Ledger, error) {
 	store, err := storageFactory.GetStore(name)
 
 	if err != nil {
@@ -42,8 +41,9 @@ func NewLedger(name string, lc fx.Lifecycle, storageFactory storage.Factory) (*L
 	}
 
 	l := &Ledger{
-		store: store,
-		name:  name,
+		store:  store,
+		name:   name,
+		locker: locker,
 	}
 
 	lc.Append(fx.Hook{
@@ -68,9 +68,11 @@ func (l *Ledger) Close() {
 func (l *Ledger) Commit(ts []core.Transaction) ([]core.Transaction, error) {
 	defer config.Remember(l.name)
 
-	l.Lock()
-	defer l.Unlock()
-
+	unlock, err := l.locker.Lock(l.name)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to acquire lock")
+	}
+	defer unlock()
 	count, _ := l.store.CountTransactions()
 	rf := map[string]map[string]int64{}
 	timestamp := time.Now().Format(time.RFC3339)
@@ -247,8 +249,11 @@ func (l *Ledger) GetAccount(address string) (core.Account, error) {
 }
 
 func (l *Ledger) SaveMeta(targetType string, targetID string, m core.Metadata) error {
-	l.Lock()
-	defer l.Unlock()
+	unlock, err := l.locker.Lock(l.name)
+	if err != nil {
+		return errors.Wrap(err, "unable to acquire lock")
+	}
+	defer unlock()
 
 	if targetType == "" {
 		return errors.New("empty target type")
