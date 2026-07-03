@@ -261,7 +261,7 @@ corren storage init                   # Initialiser le schéma de base de donné
 - [x] Langage FaRl avec compilateur et VM
 - [x] API REST — script, transactions, comptes
 - [x] Storage SQLite et PostgreSQL
-- [x] CLI — exec, server, config
+- [x] CLI — run, server, config
 - [x] Docker Compose — déploiement en une commande
 - [x] Tests d'intégration complets
 - [x] Documentation API OpenAPI/Swagger
