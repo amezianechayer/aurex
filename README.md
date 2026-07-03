@@ -262,9 +262,9 @@ corren storage init                   # Initialiser le schéma de base de donné
 - [x] API REST — script, transactions, comptes
 - [x] Storage SQLite et PostgreSQL
 - [x] CLI — exec, server, config
-- [ ] Docker Compose — déploiement en une commande
-- [ ] Tests d'intégration complets
-- [ ] Documentation API OpenAPI/Swagger
+- [x] Docker Compose — déploiement en une commande
+- [x] Tests d'intégration complets
+- [x] Documentation API OpenAPI/Swagger
 
 ### Phase 2 — Connecteurs PSP `priorité`
 
