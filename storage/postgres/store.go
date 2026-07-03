@@ -37,9 +37,7 @@ func (s *PGStore) Name() string {
 	return s.ledger
 }
 
-func (s *PGStore) LoadState() (*core.State, error) {
-
-	// Get last transaction
+func (s *PGStore) LastTransaction() (*core.Transaction, error) {
 	var lastTransaction core.Transaction
 
 	q := query.New()
@@ -53,18 +51,17 @@ func (s *PGStore) LoadState() (*core.State, error) {
 	txs := (c.Data).([]core.Transaction)
 	if len(txs) > 0 {
 		lastTransaction = txs[0]
+		return &lastTransaction, nil
 	}
+	return nil, nil
+}
 
-	// Get last meta id
+func (s *PGStore) LastMetaID() (int64, error) {
 	count, err := s.CountMeta()
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-
-	return &core.State{
-		LastTransaction: &lastTransaction,
-		LastMetaID:      count - 1,
-	}, nil
+	return count - 1, nil
 }
 
 func (s *PGStore) Initialize() error {
