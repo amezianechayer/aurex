@@ -57,3 +57,21 @@ func NewCachedStateStorage(underlying Store) *cachedStateStorage {
 		Store: underlying,
 	}
 }
+
+type CachedStorageFactory struct {
+	underlying Factory
+}
+
+func (f CachedStorageFactory) GetStore(name string) (Store, error) {
+	store, err := f.underlying.GetStore(name)
+	if err != nil {
+		return nil, err
+	}
+	return NewCachedStateStorage(store), nil
+}
+
+func NewCachedStorageFactory(underlying Factory) *CachedStorageFactory {
+	return &CachedStorageFactory{
+		underlying: underlying,
+	}
+}
