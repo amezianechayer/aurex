@@ -1,17 +1,21 @@
 package sqlite
 
-import "github.com/amezianechayer/corren/storage"
+import (
+	"context"
+
+	"github.com/amezianechayer/corren/storage"
+)
 
 type Driver struct{}
 
-func (d *Driver) Initialize() error {
+func (d *Driver) Initialize(ctx context.Context) error {
 	return nil
 }
 
 func (d *Driver) NewStore(name string) (storage.Store, error) {
 	return NewStore(name)
 }
-func (d *Driver) Close() error {
+func (d *Driver) Close(ctx context.Context) error {
 	return nil
 }
 

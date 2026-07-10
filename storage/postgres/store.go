@@ -8,9 +8,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/amezianechayer/corren/core"
-	"github.com/amezianechayer/corren/ledger/query"
-
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
@@ -37,34 +34,7 @@ func (s *PGStore) Name() string {
 	return s.ledger
 }
 
-func (s *PGStore) LastTransaction() (*core.Transaction, error) {
-	var lastTransaction core.Transaction
-
-	q := query.New()
-	q.Modify(query.Limit(1))
-
-	c, err := s.FindTransactions(q)
-	if err != nil {
-		return nil, err
-	}
-
-	txs := (c.Data).([]core.Transaction)
-	if len(txs) > 0 {
-		lastTransaction = txs[0]
-		return &lastTransaction, nil
-	}
-	return nil, nil
-}
-
-func (s *PGStore) LastMetaID() (int64, error) {
-	count, err := s.CountMeta()
-	if err != nil {
-		return 0, err
-	}
-	return count - 1, nil
-}
-
-func (s *PGStore) Initialize() error {
+func (s *PGStore) Initialize(ctx context.Context) error {
 	statements := []string{}
 
 	entries, err := migrations.ReadDir("migration")
@@ -92,7 +62,7 @@ func (s *PGStore) Initialize() error {
 
 	for i, statement := range statements {
 		_, err = s.Conn().Exec(
-			context.Background(),
+			ctx,
 			statement,
 		)
 
@@ -111,7 +81,7 @@ func (s *PGStore) table(name string) string {
 	return fmt.Sprintf(`"%s"."%s"`, s.ledger, name)
 }
 
-func (s *PGStore) Close() error {
+func (s *PGStore) Close(ctx context.Context) error {
 	return nil
 }
 

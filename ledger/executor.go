@@ -1,6 +1,7 @@
 package ledger
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -10,7 +11,7 @@ import (
 	"github.com/amezianechayer/corren/core"
 )
 
-func (l *Ledger) Execute(script core.Script) error {
+func (l *Ledger) Execute(ctx context.Context, script core.Script) error {
 	if script.Plain == "" {
 		return errors.New("no script to execute")
 	}
@@ -35,7 +36,7 @@ func (l *Ledger) Execute(script core.Script) error {
 			if req.Error != nil {
 				return fmt.Errorf("could not resolve program resources: %v", req.Error)
 			}
-			account, err := l.GetAccount(req.Account)
+			account, err := l.GetAccount(ctx, req.Account)
 			if err != nil {
 				return fmt.Errorf("could not get account %q: %v", req.Account, err)
 			}
@@ -61,7 +62,7 @@ func (l *Ledger) Execute(script core.Script) error {
 			if req.Error != nil {
 				return fmt.Errorf("could not resolve balances: %v", req.Error)
 			}
-			account, err := l.GetAccount(req.Account)
+			account, err := l.GetAccount(ctx, req.Account)
 			if err != nil {
 				return fmt.Errorf("could not get account %q: %v", req.Account, err)
 			}
@@ -84,6 +85,6 @@ func (l *Ledger) Execute(script core.Script) error {
 	t := core.Transaction{
 		Postings: m.Postings,
 	}
-	_, err = l.Commit([]core.Transaction{t})
+	_, err = l.Commit(ctx, []core.Transaction{t})
 	return err
 }

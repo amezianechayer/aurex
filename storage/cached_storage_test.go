@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"testing"
 
 	"github.com/amezianechayer/corren/core"
@@ -10,10 +11,10 @@ type noOpStorage struct {
 	Store
 }
 
-func (noOpStorage) SaveTransactions([]core.Transaction) error {
+func (noOpStorage) SaveTransactions(context.Context, []core.Transaction) error {
 	return nil
 }
-func (noOpStorage) SaveMeta(int64, string, string, string, string, string) error {
+func (noOpStorage) SaveMeta(context.Context, int64, string, string, string, string, string) error {
 	return nil
 }
 
@@ -22,11 +23,11 @@ func TestCacheState(t *testing.T) {
 	transactions := []core.Transaction{{}, {}, {}, {
 		ID: 3,
 	}}
-	err := s.SaveTransactions(transactions)
+	err := s.SaveTransactions(context.Background(), transactions)
 	if err != nil {
 		t.Fatalf("unable to save transactions: %s", err)
 	}
-	lastTransaction, err := s.LastTransaction()
+	lastTransaction, err := s.LastTransaction(context.Background())
 	if err != nil {
 		t.Fatalf("error fetching last transaction: %s", err)
 	}
@@ -37,11 +38,11 @@ func TestCacheState(t *testing.T) {
 		t.Fatalf("last transaction id must be 3")
 	}
 
-	err = s.SaveMeta(12, "", "", "", "", "")
+	err = s.SaveMeta(context.Background(), 12, "", "", "", "", "")
 	if err != nil {
 		t.Fatalf("unable to save meta: %s", err)
 	}
-	lastMetaID, err := s.LastMetaID()
+	lastMetaID, err := s.LastMetaID(context.Background())
 	if err != nil {
 		t.Fatalf("error fetching lastMetaId: %s", err)
 	}
