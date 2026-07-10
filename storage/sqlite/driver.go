@@ -11,6 +11,9 @@ func (d *Driver) Initialize() error {
 func (d *Driver) NewStore(name string) (storage.Store, error) {
 	return NewStore(name)
 }
+func (d *Driver) Close() error {
+	return nil
+}
 
 func init() {
 	storage.RegisterDriver("sqlite", &Driver{})

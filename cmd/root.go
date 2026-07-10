@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -16,6 +17,7 @@ import (
 	"github.com/amezianechayer/corren/ledger"
 	"github.com/amezianechayer/corren/storage"
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
@@ -75,6 +77,8 @@ func Execute() {
 					fx.ResultTags(`group:"resolverOptions"`),
 					fx.As(new(ledger.ResolverOption)),
 				))
+			} else {
+				options = append(options, storage.NewDefaultFactory)
 			}
 			app := fx.New(
 				fx.Provide(options...),
@@ -84,7 +88,17 @@ func Execute() {
 					api.NewAPI,
 				),
 
-				fx.Invoke(func(lc fx.Lifecycle, h *api.API) {
+				fx.Invoke(func(lc fx.Lifecycle, h *api.API, storageFactory storage.Factory) {
+					lc.Append(fx.Hook{
+						OnStop: func(ctx context.Context) error {
+							log.Println("closing storage factory")
+							err := storageFactory.Close()
+							if err != nil {
+								return errors.Wrap(err, "closing storage factory")
+							}
+							return nil
+						},
+					})
 				}),
 				api.Module,
 			)
@@ -125,7 +139,7 @@ func Execute() {
 		},
 	})
 
-	script_run := &cobra.Command{
+	scriptRun := &cobra.Command{
 		Use:  "run [ledger] [script]",
 		Args: cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -175,7 +189,7 @@ func Execute() {
 		},
 	}
 
-	script_check := &cobra.Command{
+	scriptCheck := &cobra.Command{
 		Use:  "check [script]",
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -196,8 +210,8 @@ func Execute() {
 	root.AddCommand(conf)
 	root.AddCommand(UICmd)
 	root.AddCommand(store)
-	root.AddCommand(script_run)
-	root.AddCommand(script_check)
+	root.AddCommand(scriptRun)
+	root.AddCommand(scriptCheck)
 	root.AddCommand(version)
 
 	if err := root.Execute(); err != nil {

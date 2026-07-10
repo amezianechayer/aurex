@@ -1,6 +1,8 @@
 package middlewares
 
 import (
+	"log"
+
 	"github.com/amezianechayer/corren/ledger"
 	"github.com/gin-gonic/gin"
 )
@@ -35,7 +37,12 @@ func (m *LedgerMiddleware) LedgerMiddleware() gin.HandlerFunc {
 				"err": err.Error(),
 			})
 		}
-		defer l.Close()
+		defer func() {
+			err := l.Close()
+			if err != nil {
+				log.Printf("error closing ledger: %s", err)
+			}
+		}()
 		c.Set("ledger", l)
 		c.Next()
 	}
