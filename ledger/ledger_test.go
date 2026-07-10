@@ -37,8 +37,8 @@ func with(f func(l *Ledger)) {
 			fx.NopLogger,
 		),
 		fx.Provide(
-			func(lc fx.Lifecycle) (*Ledger, error) {
-				l, err := NewLedger("test", lc, storage.DefaultFactory, NewInMemoryLocker())
+			func() (*Ledger, error) {
+				l, err := NewLedger(context.Background(), "test", storage.DefaultFactory, NewInMemoryLocker())
 
 				if err != nil {
 					panic(err)
@@ -49,7 +49,7 @@ func with(f func(l *Ledger)) {
 		),
 		fx.Invoke(f),
 		fx.Invoke(func(l *Ledger) {
-			l.Close()
+			l.Close(context.Background())
 		}),
 	)
 }
@@ -118,7 +118,7 @@ func TestTransaction(t *testing.T) {
 
 			fmt.Println(i)
 
-			_, err := l.Commit(batch)
+			_, err := l.Commit(context.Background(), batch)
 
 			if err != nil {
 				t.Error(err)
@@ -127,7 +127,7 @@ func TestTransaction(t *testing.T) {
 			batch = []core.Transaction{}
 		}
 
-		world, err := l.GetAccount("world")
+		world, err := l.GetAccount(context.Background(), "world")
 
 		if err != nil {
 			t.Error(err)
@@ -142,13 +142,13 @@ func TestTransaction(t *testing.T) {
 			))
 		}
 
-		l.Close()
+		l.Close(context.Background())
 	})
 }
 
 func TestBalance(t *testing.T) {
 	with(func(l *Ledger) {
-		_, err := l.Commit([]core.Transaction{
+		_, err := l.Commit(context.Background(), []core.Transaction{
 			{
 				Postings: []core.Posting{
 					{
@@ -183,13 +183,13 @@ func TestReference(t *testing.T) {
 			},
 		}
 
-		_, err := l.Commit([]core.Transaction{tx})
+		_, err := l.Commit(context.Background(), []core.Transaction{tx})
 
 		if err != nil {
 			t.Error(err)
 		}
 
-		_, err = l.Commit([]core.Transaction{tx})
+		_, err = l.Commit(context.Background(), []core.Transaction{tx})
 
 		if err == nil {
 			t.Fail()
@@ -199,7 +199,7 @@ func TestReference(t *testing.T) {
 
 func TestLast(t *testing.T) {
 	with(func(l *Ledger) {
-		_, err := l.GetLastTransaction()
+		_, err := l.GetLastTransaction(context.Background())
 
 		if err != nil {
 			t.Error(err)
@@ -209,15 +209,15 @@ func TestLast(t *testing.T) {
 
 func TestAccountMetadata(t *testing.T) {
 	with(func(l *Ledger) {
-		l.SaveMeta("account", "users:001", core.Metadata{
+		l.SaveMeta(context.Background(), "account", "users:001", core.Metadata{
 			"a random metadata": json.RawMessage(`"old value"`),
 		})
-		l.SaveMeta("account", "users:001", core.Metadata{
+		l.SaveMeta(context.Background(), "account", "users:001", core.Metadata{
 			"a random metadata": json.RawMessage(`"new value"`),
 		})
 
 		{
-			acc, err := l.GetAccount("users:001")
+			acc, err := l.GetAccount(context.Background(), "users:001")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -235,7 +235,7 @@ func TestAccountMetadata(t *testing.T) {
 		}
 
 		{
-			cursor, err := l.FindAccounts(query.Account("users:001"))
+			cursor, err := l.FindAccounts(context.Background(), query.Account("users:001"))
 
 			if err != nil {
 				t.Fatal(err)
@@ -266,7 +266,7 @@ func TestAccountMetadata(t *testing.T) {
 func TestTransactionMetadata(t *testing.T) {
 	with(func(l *Ledger) {
 
-		l.Commit([]core.Transaction{{
+		l.Commit(context.Background(), []core.Transaction{{
 			Postings: []core.Posting{
 				{
 					Source:      "world",
@@ -277,19 +277,19 @@ func TestTransactionMetadata(t *testing.T) {
 			},
 		}})
 
-		tx, err := l.GetLastTransaction()
+		tx, err := l.GetLastTransaction(context.Background())
 		if err != nil {
 			t.Error(err)
 		}
 
-		l.SaveMeta("transaction", fmt.Sprintf("%d", tx.ID), core.Metadata{
+		l.SaveMeta(context.Background(), "transaction", fmt.Sprintf("%d", tx.ID), core.Metadata{
 			"a random metadata": json.RawMessage(`"old value"`),
 		})
-		l.SaveMeta("transaction", fmt.Sprintf("%d", tx.ID), core.Metadata{
+		l.SaveMeta(context.Background(), "transaction", fmt.Sprintf("%d", tx.ID), core.Metadata{
 			"a random metadata": json.RawMessage(`"new value"`),
 		})
 
-		tx, err = l.GetLastTransaction()
+		tx, err = l.GetLastTransaction(context.Background())
 		if err != nil {
 			t.Error(err)
 		}
@@ -310,7 +310,7 @@ func TestTransactionMetadata(t *testing.T) {
 func TestSaveTransactionMetadata(t *testing.T) {
 	with(func(l *Ledger) {
 
-		l.Commit([]core.Transaction{{
+		l.Commit(context.Background(), []core.Transaction{{
 			Postings: []core.Posting{
 				{
 					Source:      "world",
@@ -324,7 +324,7 @@ func TestSaveTransactionMetadata(t *testing.T) {
 			},
 		}})
 
-		tx, err := l.GetLastTransaction()
+		tx, err := l.GetLastTransaction(context.Background())
 		if err != nil {
 			t.Error(err)
 		}
@@ -344,7 +344,7 @@ func TestSaveTransactionMetadata(t *testing.T) {
 
 func TestGetTransaction(t *testing.T) {
 	with(func(l *Ledger) {
-		l.Commit([]core.Transaction{{
+		l.Commit(context.Background(), []core.Transaction{{
 			Reference: "bar",
 			Postings: []core.Posting{
 				{
@@ -356,12 +356,12 @@ func TestGetTransaction(t *testing.T) {
 			},
 		}})
 
-		last, err := l.GetLastTransaction()
+		last, err := l.GetLastTransaction(context.Background())
 		if err != nil {
 			t.Error(err)
 		}
 
-		tx, err := l.GetTransaction(fmt.Sprint(last.ID))
+		tx, err := l.GetTransaction(context.Background(), fmt.Sprint(last.ID))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -385,9 +385,9 @@ func TestFindTransactions(t *testing.T) {
 			},
 		}
 
-		l.Commit([]core.Transaction{tx})
+		l.Commit(context.Background(), []core.Transaction{tx})
 
-		res, err := l.FindTransactions()
+		res, err := l.FindTransactions(context.Background())
 
 		if err != nil {
 			t.Error(err)
@@ -405,7 +405,7 @@ func TestRevertTransaction(t *testing.T) {
 	with(func(l *Ledger) {
 		revertAmt := int64(100)
 
-		txs, err := l.Commit([]core.Transaction{{
+		txs, err := l.Commit(context.Background(), []core.Transaction{{
 			Reference: "foo",
 			Postings: []core.Posting{
 				{
@@ -421,18 +421,18 @@ func TestRevertTransaction(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		world, err := l.GetAccount("world")
+		world, err := l.GetAccount(context.Background(), "world")
 		if err != nil {
 			t.Fatal(err)
 		}
 		originalBal := world.Balances["CASH"]
 
-		err = l.RevertTransaction(fmt.Sprint(txs[0].ID))
+		err = l.RevertTransaction(context.Background(), fmt.Sprint(txs[0].ID))
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		revertTx, err := l.GetLastTransaction()
+		revertTx, err := l.GetLastTransaction(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -448,7 +448,7 @@ func TestRevertTransaction(t *testing.T) {
 			t.Errorf("RevertTransaction() reverted posting mismatch (-want +got):\n%s", diff)
 		}
 
-		world, err = l.GetAccount("world")
+		world, err = l.GetAccount(context.Background(), "world")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -477,7 +477,7 @@ func BenchmarkTransaction1(b *testing.B) {
 				},
 			})
 
-			l.Commit(txs)
+			l.Commit(context.Background(), txs)
 		}
 	})
 }
@@ -501,7 +501,7 @@ func BenchmarkTransaction_20_1k(b *testing.B) {
 					})
 				}
 
-				l.Commit(txs)
+				l.Commit(context.Background(), txs)
 			}
 		}
 	})
@@ -510,7 +510,7 @@ func BenchmarkTransaction_20_1k(b *testing.B) {
 func BenchmarkGetAccount(b *testing.B) {
 	with(func(l *Ledger) {
 		for i := 0; i < b.N; i++ {
-			l.GetAccount("users:013")
+			l.GetAccount(context.Background(), "users:013")
 		}
 	})
 }
@@ -518,7 +518,7 @@ func BenchmarkGetAccount(b *testing.B) {
 func BenchmarkFindTransactions(b *testing.B) {
 	with(func(l *Ledger) {
 		for i := 0; i < b.N; i++ {
-			l.FindTransactions()
+			l.FindTransactions(context.Background())
 		}
 	})
 }
