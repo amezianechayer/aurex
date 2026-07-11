@@ -1,0 +1,22 @@
+FROM golang:1.17-alpine AS builder
+
+RUN apk add --no-cache gcc musl-dev
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+# cmd/horizon is gitignored so railway up doesn't upload it; the go:embed
+# pattern in cmd/ui.go needs at least one visible file to compile
+RUN mkdir -p cmd/horizon && echo "UI served separately (horizon.corren.io)" > cmd/horizon/embed-placeholder.txt
+RUN CGO_ENABLED=1 go build -o /corren .
+
+FROM alpine
+
+RUN apk add --update-cache curl \
+   && rm -rf /var/cache/apk/*
+COPY --from=builder /corren /usr/local/bin/corren
+
+EXPOSE 3068
+
+CMD ["corren", "server", "start"]
