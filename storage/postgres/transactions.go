@@ -10,7 +10,7 @@ import (
 	"github.com/amezianechayer/corren/core"
 	"github.com/amezianechayer/corren/ledger/query"
 	"github.com/huandu/go-sqlbuilder"
-	"github.com/spf13/viper"
+	"github.com/sirupsen/logrus"
 )
 
 func (s *PGStore) SaveTransactions(ctx context.Context, ts []core.Transaction) error {
@@ -266,9 +266,7 @@ func (s *PGStore) GetTransaction(ctx context.Context, txid string) (tx core.Tran
 	sb.OrderBy("p.id asc")
 
 	sqlq, args := sb.BuildWithFlavor(sqlbuilder.PostgreSQL)
-	if viper.GetBool("debug") {
-		fmt.Println(sqlq, args)
-	}
+	logrus.Debugln(sqlq, args)
 
 	rows, err := s.Conn().Query(
 		ctx,

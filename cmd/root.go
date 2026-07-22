@@ -13,18 +13,17 @@ import (
 
 	"github.com/amezianechayer/corren-vm/script/compiler"
 	"github.com/amezianechayer/corren/api"
+	"github.com/amezianechayer/corren/api/actions"
 	"github.com/amezianechayer/corren/config"
 	"github.com/amezianechayer/corren/ledger"
 	"github.com/amezianechayer/corren/storage"
+	"github.com/amezianechayer/corren/storage/postgres"
+	"github.com/amezianechayer/corren/storage/sqlite"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
-
-	// These lines allow registering sql drivers using init() functions
-	_ "github.com/amezianechayer/corren/storage/postgres"
-	_ "github.com/amezianechayer/corren/storage/sqlite"
 )
 
 var (
@@ -36,6 +35,23 @@ var (
 		Use:               "corren",
 		Short:             "Corren",
 		DisableAutoGenTag: true,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			config.Init()
+			switch viper.GetString("storage.driver") {
+			case "sqlite":
+				storage.RegisterDriver("sqlite", sqlite.NewDriver(
+					viper.GetString("storage.dir"),
+					viper.GetString("storage.sqlite.db_name"),
+				))
+			case "postgres":
+				storage.RegisterDriver("postgres", postgres.NewDriver(
+					viper.GetString("storage.postgres.conn_string"),
+				))
+			default:
+				return fmt.Errorf("unknown storage driver %s", viper.GetString("storage.driver"))
+			}
+			return nil
+		},
 	}
 )
 
@@ -62,9 +78,22 @@ func Execute() {
 			config.Init()
 
 			options := make([]interface{}, 0)
+			options = append(options,
+				fx.Annotate(func() string { return viper.GetString("version") }, fx.ResultTags(`name:"version"`)),
+				fx.Annotate(func() string { return viper.GetString("storage.driver") }, fx.ResultTags(`name:"storageDriver"`)),
+				fx.Annotate(func() actions.LedgerLister {
+					return actions.LedgerListerFn(func() []string {
+						// Ledgers are updated by function config.Remember
+						// We have to resolve the list dynamically
+						return viper.GetStringSlice("ledgers")
+					})
+				}, fx.ResultTags(`name:"ledgerLister"`)),
+				fx.Annotate(func() string { return viper.GetString("server.http.basic_auth") }, fx.ResultTags(`name:"httpBasic"`)),
+			)
 			if viper.GetBool("storage.cache") {
 				options = append(options, fx.Annotate(
 					storage.NewDefaultFactory,
+					fx.ParamTags(`name:"storageDriver"`),
 					fx.ResultTags(`name:"underlyingStorage"`),
 				))
 				options = append(options, fx.Annotate(
@@ -78,7 +107,10 @@ func Execute() {
 					fx.As(new(ledger.ResolverOption)),
 				))
 			} else {
-				options = append(options, storage.NewDefaultFactory)
+				options = append(options, fx.Annotate(
+					storage.NewDefaultFactory,
+					fx.ParamTags(`name:"storageDriver"`),
+				))
 			}
 			app := fx.New(
 				fx.Provide(options...),
@@ -89,6 +121,12 @@ func Execute() {
 				),
 
 				fx.Invoke(func(lc fx.Lifecycle, h *api.API, storageFactory storage.Factory) {
+					go func() {
+						err := http.ListenAndServe(viper.GetString("server.http.bind_address"), h)
+						if err != nil {
+							panic(err)
+						}
+					}()
 					lc.Append(fx.Hook{
 						OnStop: func(ctx context.Context) error {
 							log.Println("closing storage factory")
@@ -128,7 +166,7 @@ func Execute() {
 		Use: "init",
 		Run: func(cmd *cobra.Command, args []string) {
 			config.Init()
-			s, err := storage.GetStore("default")
+			s, err := storage.GetStore(viper.GetString("storage.driver"), "default")
 			if err != nil {
 				log.Fatal(err)
 			}

@@ -10,7 +10,7 @@ import (
 	"github.com/amezianechayer/corren/core"
 	"github.com/amezianechayer/corren/ledger/query"
 	"github.com/huandu/go-sqlbuilder"
-	"github.com/spf13/viper"
+	"github.com/sirupsen/logrus"
 )
 
 func (s *SQLiteStore) FindTransactions(ctx context.Context, q query.Query) (query.Cursor, error) {
@@ -59,9 +59,7 @@ func (s *SQLiteStore) FindTransactions(ctx context.Context, q query.Query) (quer
 	sb.OrderBy("t.id desc, p.id asc")
 
 	sqlq, args := sb.BuildWithFlavor(sqlbuilder.SQLite)
-	if viper.GetBool("debug") {
-		fmt.Println(sqlq, args)
-	}
+	logrus.Debugln(sqlq, args)
 
 	rows, err := s.db.QueryContext(
 		ctx,
@@ -211,9 +209,7 @@ func (s *SQLiteStore) SaveTransactions(ctx context.Context, ts []core.Transactio
 			)
 
 			sqlq, args := ib.BuildWithFlavor(sqlbuilder.SQLite)
-			if viper.GetBool("debug") {
-				fmt.Println(sqlq, args)
-			}
+			logrus.Debugln(sqlq, args)
 
 			_, err = tx.ExecContext(ctx, sqlq, args...)
 
@@ -248,9 +244,7 @@ func (s *SQLiteStore) GetTransaction(ctx context.Context, txid string) (tx core.
 	sb.OrderBy("p.id asc")
 
 	sqlq, args := sb.BuildWithFlavor(sqlbuilder.SQLite)
-	if viper.GetBool("debug") {
-		fmt.Println(sqlq, args)
-	}
+	logrus.Debugln(sqlq, args)
 
 	rows, err := s.db.QueryContext(
 		ctx,

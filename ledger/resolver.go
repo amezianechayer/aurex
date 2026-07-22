@@ -31,7 +31,7 @@ func WithLocker(locker Locker) ResolveOptionFn {
 }
 
 var DefaultResolverOptions = []ResolverOption{
-	WithStorageFactory(storage.DefaultFactory),
+	WithStorageFactory(&storage.BuiltInFactory{Driver: "sqlite"}),
 	WithLocker(NewInMemoryLocker()),
 }
 
