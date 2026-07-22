@@ -66,12 +66,15 @@ type CachedStorageFactory struct {
 	underlying Factory
 }
 
-func (f CachedStorageFactory) GetStore(name string) (Store, error) {
+func (f *CachedStorageFactory) GetStore(name string) (Store, error) {
 	store, err := f.underlying.GetStore(name)
 	if err != nil {
 		return nil, err
 	}
 	return NewCachedStateStorage(store), nil
+}
+func (f *CachedStorageFactory) Close(ctx context.Context) error {
+	return f.underlying.Close(ctx)
 }
 
 func NewCachedStorageFactory(underlying Factory) *CachedStorageFactory {
@@ -79,3 +82,5 @@ func NewCachedStorageFactory(underlying Factory) *CachedStorageFactory {
 		underlying: underlying,
 	}
 }
+
+var _ Factory = &CachedStorageFactory{}

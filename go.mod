@@ -16,6 +16,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/viper v1.8.1
+	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.8.1 // indirect
 	github.com/swaggo/swag v1.7.4
 	go.uber.org/atomic v1.9.0 // indirect

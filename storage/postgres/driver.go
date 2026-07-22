@@ -7,12 +7,12 @@ import (
 
 	"github.com/amezianechayer/corren/storage"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/spf13/viper"
 )
 
 type Driver struct {
-	once sync.Once
-	pool *pgxpool.Pool
+	once       sync.Once
+	pool       *pgxpool.Pool
+	connString string
 }
 
 func (d *Driver) Initialize(ctx context.Context) error {
@@ -20,10 +20,7 @@ func (d *Driver) Initialize(ctx context.Context) error {
 	d.once.Do(func() {
 		log.Println("initiating postgres pool")
 
-		pool, err := pgxpool.Connect(
-			ctx,
-			viper.GetString("storage.postgres.conn_string"),
-		)
+		pool, err := pgxpool.Connect(ctx, d.connString)
 		if err != nil {
 			errCh <- err
 		}
@@ -41,6 +38,7 @@ func (d *Driver) Initialize(ctx context.Context) error {
 func (d *Driver) NewStore(name string) (storage.Store, error) {
 	return NewStore(name, d.pool)
 }
+
 func (d *Driver) Close(ctx context.Context) error {
 	if d.pool != nil {
 		d.pool.Close()
@@ -48,6 +46,8 @@ func (d *Driver) Close(ctx context.Context) error {
 	return nil
 }
 
-func init() {
-	storage.RegisterDriver("postgres", &Driver{})
+func NewDriver(connString string) *Driver {
+	return &Driver{
+		connString: connString,
+	}
 }

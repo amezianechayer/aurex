@@ -6,19 +6,34 @@ import (
 	"github.com/amezianechayer/corren/config"
 	_ "github.com/amezianechayer/corren/docs"
 	"github.com/gin-gonic/gin"
-	"github.com/spf13/viper"
 
 	"github.com/swaggo/swag"
 )
 
+type LedgerLister interface {
+	List() []string
+}
+type LedgerListerFn func() []string
+
+func (fn LedgerListerFn) List() []string {
+	return fn()
+}
+
 // ConfigController -
 type ConfigController struct {
 	BaseController
+	Version       string
+	StorageDriver string
+	LedgerLister  LedgerLister
 }
 
 // NewConfigController -
-func NewConfigController() ConfigController {
-	return ConfigController{}
+func NewConfigController(version string, storageDriver string, lister LedgerLister) ConfigController {
+	return ConfigController{
+		Version:       version,
+		StorageDriver: storageDriver,
+		LedgerLister:  lister,
+	}
 }
 
 // GetInfo godoc
@@ -36,11 +51,11 @@ func (ctl *ConfigController) GetInfo(c *gin.Context) {
 		http.StatusOK,
 		config.ConfigInfo{
 			Server:  "corren-ledger",
-			Version: viper.Get("version"),
+			Version: ctl.Version,
 			Config: &config.Config{
 				LedgerStorage: &config.LedgerStorage{
-					Driver:  viper.Get("storage.driver"),
-					Ledgers: viper.Get("ledgers"),
+					Driver:  ctl.StorageDriver,
+					Ledgers: ctl.LedgerLister.List(),
 				},
 			},
 		},
